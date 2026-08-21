@@ -763,6 +763,21 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     } catch (e) {
       console.warn('Supabase getSiteSettings error', e);
     }
+    try {
+      const { data, error } = await supabase.from('events').select('*').eq('is_active', true).limit(1).single();
+      if (data && !error) {
+        return {
+          ...DEFAULT_SITE_SETTINGS,
+          event_name_en: data.title_en || DEFAULT_SITE_SETTINGS.event_name_en,
+          event_subtitle_en: data.subtitle_en || DEFAULT_SITE_SETTINGS.event_subtitle_en,
+          organizer_name_en: data.organizer_en || DEFAULT_SITE_SETTINGS.organizer_name_en,
+          event_date: data.start_date || DEFAULT_SITE_SETTINGS.event_date,
+          event_end_date: data.end_date || DEFAULT_SITE_SETTINGS.event_end_date,
+        };
+      }
+    } catch {
+      // Fall through to local/default
+    }
   }
   return getLocal<SiteSettings>('site_settings', DEFAULT_SITE_SETTINGS);
 }
