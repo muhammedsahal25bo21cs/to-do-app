@@ -8,37 +8,37 @@ export const revalidate = 0;
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const resolved = await params;
-  const id = resolved.id || 'result';
+  const slug = resolved.slug;
 
   const [settings, prgs] = await Promise.all([
     getSiteSettings(),
     getProgrammes(false, false),
   ]);
 
-  const foundPrg = prgs.find(p => p.id === id || p.slug === id);
-  const programmeTitle = foundPrg ? foundPrg.title_en : `Programme ${id}`;
+  const programme = prgs.find(p => p.slug === slug || p.id === slug);
   const eventName = settings.event_name_en || 'Milad Fest 2K26';
-  const shareUrl = `${siteUrl}/results/programme/${id}`;
+  const shareUrl = `${siteUrl}/programs/${slug}/register`;
+
+  const programmeTitle = programme ? programme.title_en : slug.replace(/-/g, ' ').toUpperCase();
+  const title = `Register for ${programmeTitle} — ${eventName}`;
+  const description = `Register online for ${programmeTitle} (${programme?.venue || settings.venue_en}) on ${eventName} Portal.`;
 
   const shareImage =
-    settings.result_poster_bg_url ||
     settings.seo_share_image_url ||
     settings.event_poster_url ||
+    settings.hero_image_url ||
     '/og-image.png';
-
-  const title = `Official Result: ${programmeTitle} — ${eventName}`;
-  const description = `Official Published Competition Result Poster for ${programmeTitle} on ${eventName} Portal.`;
 
   return {
     title: title,
     description: description,
     openGraph: {
-      title: `Official Result: ${programmeTitle}`,
+      title: `Register for ${programmeTitle}`,
       description: description,
-      type: 'article',
+      type: 'website',
       url: shareUrl,
       siteName: eventName,
       images: [
@@ -46,19 +46,19 @@ export async function generateMetadata({
           url: shareImage,
           width: 1200,
           height: 630,
-          alt: `${programmeTitle} Result Poster`,
+          alt: title,
         },
       ],
     },
     twitter: {
       card: 'summary_large_image',
-      title: `Official Result: ${programmeTitle}`,
+      title: `Register for ${programmeTitle}`,
       description: description,
       images: [shareImage],
     },
   };
 }
 
-export default function ProgrammeResultLayout({ children }: { children: React.ReactNode }) {
+export default function ProgrammeDetailLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
