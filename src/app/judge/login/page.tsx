@@ -34,10 +34,6 @@ export default function JudgeLoginPage() {
     }
   };
 
-  const handleDemoJudgeLogin = async () => {
-    await login('judge@miladfest.com', 'demo1234');
-    router.push('/judge/dashboard');
-  };
 
   return (
     <div className="min-h-screen bg-emerald-950 text-emerald-100 flex items-center justify-center p-4">
@@ -109,14 +105,8 @@ export default function JudgeLoginPage() {
           </button>
         </form>
 
-        <div className="pt-4 border-t border-emerald-800/60 text-center">
-          <button
-            onClick={handleDemoJudgeLogin}
-            className="text-xs font-bold text-amber-400 hover:underline flex items-center justify-center gap-1.5 mx-auto"
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>Simulate Judge Login (Demo Access)</span>
-          </button>
+        <div className="pt-4 border-t border-emerald-800/60 text-center text-xs text-emerald-400">
+          <span>Protected Judge Portal — Account must be assigned by Super Admin.</span>
         </div>
 
       </div>

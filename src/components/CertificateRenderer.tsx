@@ -3,6 +3,7 @@
 import React from 'react';
 import { GeneratedCertificate } from '@/lib/cmsService';
 import { IslamicCrescentLogo } from '@/components/IslamicCrescentLogo';
+import { Award, ShieldCheck, MapPin, Calendar } from 'lucide-react';
 
 interface CertificateRendererProps {
   certificate: GeneratedCertificate;
@@ -14,38 +15,40 @@ export function CertificateRenderer({ certificate, previewMode = false }: Certif
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://miladfest.com';
   const verificationUrl = `${origin}/verify/${certificate.id}`;
 
-  // QR Code URL using public Google API or SVG encoder
+  // QR Code URL using public API
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verificationUrl)}`;
-
-  // Visual Theme Variations
-  const isClassic = style === 'classic-islamic';
-  const isRoyal = style === 'royal-gold';
-  const isMinimal = style === 'minimal-emerald';
 
   return (
     <div
       id={`cert-container-${certificate.id}`}
-      className={`relative w-full aspect-[1.414/1] max-w-4xl mx-auto rounded-3xl overflow-hidden shadow-2xl p-8 sm:p-12 flex flex-col justify-between select-none print:shadow-none print:w-full print:max-w-none print:h-screen ${
-        isRoyal
-          ? 'bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-950 text-emerald-100 border-[12px] border-amber-500/80 shadow-amber-500/10'
-          : isClassic
-          ? 'bg-emerald-950 text-amber-100 border-[14px] border-amber-600/90'
-          : 'bg-slate-950 text-emerald-100 border-8 border-emerald-500/60'
-      }`}
+      className="relative w-full aspect-[1/1.414] max-w-2xl mx-auto rounded-3xl overflow-hidden shadow-2xl p-8 sm:p-12 flex flex-col justify-between select-none print:shadow-none print:w-full print:max-w-none print:h-screen print:rounded-none bg-gradient-to-br from-[#022c22] via-[#064e3b] to-[#022c22] text-emerald-100 border-[12px] border-amber-500/80 shadow-amber-500/10"
     >
-      {/* Outer Ornamental Corner Flourishes */}
-      <div className="absolute top-3 left-3 w-12 h-12 border-t-2 border-l-2 border-amber-400/80 rounded-tl-xl pointer-events-none" />
-      <div className="absolute top-3 right-3 w-12 h-12 border-t-2 border-r-2 border-amber-400/80 rounded-tr-xl pointer-events-none" />
-      <div className="absolute bottom-3 left-3 w-12 h-12 border-b-2 border-l-2 border-amber-400/80 rounded-bl-xl pointer-events-none" />
-      <div className="absolute bottom-3 right-3 w-12 h-12 border-b-2 border-r-2 border-amber-400/80 rounded-br-xl pointer-events-none" />
+      {/* Background Decorative Pattern & Watermark Overlay */}
+      <div 
+        className="absolute inset-0 opacity-10 pointer-events-none bg-repeat" 
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23f59e0b' fill-opacity='0.4' fill-rule='evenodd'%3E%3Cpath d='M30 30L0 0h60L30 30zM30 30L0 60h60L30 30z'/%3E%3C/g%3E%3C/svg%3E")`
+        }} 
+      />
 
-      {/* Inner Decorative Arch Line */}
-      <div className="absolute inset-4 border border-amber-500/30 rounded-2xl pointer-events-none flex items-center justify-center">
-        <div className="w-full h-full border border-amber-500/20 rounded-xl" />
+      {/* Outer Ornamental Corner Flourishes */}
+      <div className="absolute top-4 left-4 w-12 h-12 border-t-2 border-l-2 border-amber-400/80 rounded-tl-xl pointer-events-none" />
+      <div className="absolute top-4 right-4 w-12 h-12 border-t-2 border-r-2 border-amber-400/80 rounded-tr-xl pointer-events-none" />
+      <div className="absolute bottom-4 left-4 w-12 h-12 border-b-2 border-l-2 border-amber-400/80 rounded-bl-xl pointer-events-none" />
+      <div className="absolute bottom-4 right-4 w-12 h-12 border-b-2 border-r-2 border-amber-400/80 rounded-br-xl pointer-events-none" />
+
+      {/* Inner Decorative Double Arch Line */}
+      <div className="absolute inset-4 border border-amber-400/40 rounded-2xl pointer-events-none flex items-center justify-center">
+        <div className="w-full h-full border border-amber-400/25 rounded-xl" />
       </div>
 
       {/* Header Branding Section */}
-      <div className="relative z-10 text-center space-y-2">
+      <div className="relative z-10 text-center space-y-2 pt-2">
+        {/* Bismillah / Durood Calligraphy Header */}
+        <p className="text-xs sm:text-sm font-serif text-amber-300/90 tracking-widest uppercase font-bold">
+          بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+        </p>
+
         <div className="flex items-center justify-center gap-3">
           {certificate.logo_url ? (
             <img src={certificate.logo_url} alt="Logo" className="w-12 h-12 object-contain filter drop-shadow" />
@@ -54,16 +57,11 @@ export function CertificateRenderer({ certificate, previewMode = false }: Certif
           )}
         </div>
 
-        {/* Bismillah / Durood Calligraphy Header */}
-        <p className="text-sm font-serif text-amber-300/90 tracking-widest uppercase font-bold">
-          بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-        </p>
-
         <p className="text-xs sm:text-sm font-extrabold uppercase text-emerald-300 tracking-wider">
           {certificate.event_name || 'Milad Fest 2K26'}
         </p>
 
-        <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-amber-400 font-serif drop-shadow-md pt-1 uppercase">
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200 font-serif drop-shadow-md uppercase">
           {certificate.certificate_type === 'Winner'
             ? 'Certificate of Achievement'
             : certificate.certificate_type === 'Participation'
@@ -79,19 +77,19 @@ export function CertificateRenderer({ certificate, previewMode = false }: Certif
         </p>
 
         {/* Recipient Name */}
-        <div className="inline-block border-b-2 border-amber-400/60 pb-1 px-8">
-          <h2 className="text-2xl sm:text-4xl font-black text-amber-300 font-serif tracking-wide drop-shadow">
+        <div className="inline-block border-b-2 border-amber-400/60 pb-2 px-6 max-w-full">
+          <h2 className="text-2xl sm:text-4xl font-black text-amber-300 font-serif tracking-wide drop-shadow-md leading-tight">
             {certificate.recipient_name}
           </h2>
           {certificate.recipient_code && (
-            <span className="text-[10px] sm:text-xs text-amber-400/80 font-mono block tracking-widest uppercase mt-0.5">
+            <span className="text-[10px] sm:text-xs text-amber-400/90 font-mono block tracking-widest uppercase mt-1 font-bold">
               ID: {certificate.recipient_code} {certificate.team_name ? `• Team: ${certificate.team_name}` : ''}
             </span>
           )}
         </div>
 
         {/* Achievement Wording */}
-        <p className="text-xs sm:text-base text-emerald-100 max-w-xl mx-auto leading-relaxed font-medium">
+        <p className="text-xs sm:text-base text-emerald-100 max-w-lg mx-auto leading-relaxed font-medium">
           {certificate.achievement_text || (
             certificate.position
               ? `for securing ${certificate.position} in ${certificate.programme_title} (${certificate.category_name})`
@@ -100,9 +98,9 @@ export function CertificateRenderer({ certificate, previewMode = false }: Certif
         </p>
       </div>
 
-      {/* Footer Signatures, Seal & Embedded QR Verification Code */}
+      {/* Footer Signatures, Date, Seal & Embedded QR Verification Code */}
       <div className="relative z-10 flex items-end justify-between pt-4 border-t border-amber-500/30 text-xs">
-        {/* Left: Issue Date & Seal */}
+        {/* Left: Issue Date & Organizer */}
         <div className="space-y-1 text-left">
           <span className="text-[10px] uppercase font-bold text-amber-400 block tracking-wider">Date of Issuance</span>
           <span className="text-xs font-mono font-bold text-emerald-200">{certificate.issue_date}</span>
@@ -110,9 +108,9 @@ export function CertificateRenderer({ certificate, previewMode = false }: Certif
         </div>
 
         {/* Center: Scannable Verification QR Code */}
-        <div className="flex flex-col items-center gap-1 bg-emerald-950/80 p-2 rounded-xl border border-amber-500/40 shadow-lg">
+        <div className="flex flex-col items-center gap-1 bg-emerald-950/90 p-2 rounded-2xl border border-amber-400/50 shadow-xl">
           <img src={qrImageUrl} alt="QR Code Verification" className="w-14 h-14 rounded-lg bg-white p-1" />
-          <span className="text-[9px] font-mono text-amber-300 font-bold tracking-widest">{certificate.id}</span>
+          <span className="text-[8px] font-mono text-amber-300 font-black tracking-widest uppercase">{certificate.id}</span>
         </div>
 
         {/* Right: Signature */}

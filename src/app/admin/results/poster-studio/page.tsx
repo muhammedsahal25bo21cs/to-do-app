@@ -17,7 +17,7 @@ import {
 import { ResultPosterRenderer } from '@/components/posters/ResultPosterRenderer';
 import { ShareModal } from '@/components/ShareModal';
 import { buildSmartPublicUrl } from '@/lib/qrCodeService';
-import { Sparkles, Save, Eye, ArrowLeft, Palette, Sliders, CheckCircle2, Award, QrCode, Share2 } from 'lucide-react';
+import { Sparkles, Save, Eye, ArrowLeft, Palette, Sliders, CheckCircle2, Award, QrCode, Share2, LayoutGrid } from 'lucide-react';
 
 export default function ResultPosterStudioPage() {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
@@ -29,6 +29,7 @@ export default function ResultPosterStudioPage() {
   // Customization Controls State
   const [posterTitle, setPosterTitle] = useState('OFFICIAL COMPETITION RESULT');
   const [template, setTemplate] = useState<'classic-islamic' | 'royal-gold' | 'minimalist-emerald' | 'modern-islamic'>('royal-gold');
+  const [aspectRatio, setAspectRatio] = useState<'4:5' | '9:16'>('4:5');
   const [customFooter, setCustomFooter] = useState('');
   const [displayCount, setDisplayCount] = useState(3);
   const [specialAwardTitle, setSpecialAwardTitle] = useState('');
@@ -108,7 +109,7 @@ export default function ResultPosterStudioPage() {
             <span>Professional Islamic Result Poster Studio</span>
           </h1>
           <p className="text-xs text-emerald-300/80 mt-1">
-            Design and publish official event result posters with 4 Islamic templates and real-time live preview.
+            Design and publish official event result posters with 4:5 Feed & 9:16 Story templates and real-time live preview.
           </p>
         </div>
 
@@ -171,6 +172,36 @@ export default function ResultPosterStudioPage() {
                   <option key={p.id} value={p.id}>{p.title_en} ({p.code || 'PRG'})</option>
                 ))}
               </select>
+            </div>
+
+            {/* Aspect Ratio Canvas Format */}
+            <div>
+              <label className="block text-xs font-bold text-amber-300 mb-1">Canvas Aspect Ratio *</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAspectRatio('4:5')}
+                  className={`py-2 px-3 rounded-xl text-xs font-extrabold border transition-all ${
+                    aspectRatio === '4:5'
+                      ? 'bg-amber-500 text-emerald-950 border-amber-400 shadow'
+                      : 'bg-emerald-900/60 text-emerald-200 border-emerald-700 hover:bg-emerald-800'
+                  }`}
+                >
+                  4:5 Feed (1080x1350)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAspectRatio('9:16')}
+                  className={`py-2 px-3 rounded-xl text-xs font-extrabold border transition-all ${
+                    aspectRatio === '9:16'
+                      ? 'bg-amber-500 text-emerald-950 border-amber-400 shadow'
+                      : 'bg-emerald-900/60 text-emerald-200 border-emerald-700 hover:bg-emerald-800'
+                  }`}
+                >
+                  9:16 Story (1080x1920)
+                </button>
+              </div>
             </div>
 
             {/* Poster Template Switcher */}
@@ -270,10 +301,10 @@ export default function ResultPosterStudioPage() {
         <div className="lg:col-span-7 flex flex-col items-center space-y-4">
           <div className="flex items-center justify-between w-full max-w-lg px-2">
             <span className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
-              <Eye className="w-4 h-4" /> Live Poster Preview (Zero Scores Shown)
+              <Eye className="w-4 h-4" /> Live Poster Artwork ({aspectRatio})
             </span>
-            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-900 px-2 py-0.5 rounded border border-emerald-800">
-              Aspect 4:5 Mobile Ready
+            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-900 px-2 py-0.5 rounded border border-emerald-800 font-bold">
+              {aspectRatio === '4:5' ? '1080×1350 Feed' : '1080×1920 Story'}
             </span>
           </div>
 
@@ -281,8 +312,12 @@ export default function ResultPosterStudioPage() {
             settings={settings}
             programmeTitle={activeProgramme?.title_en || 'Programme Title'}
             categoryName={activeCategory?.name_en || 'General Category'}
+            gender={activeProgramme?.gender}
+            venue={activeProgramme?.venue}
+            eventDate={activeProgramme?.event_date}
             results={results}
             template={template}
+            aspectRatio={aspectRatio}
             posterTitle={posterTitle}
             customFooterText={customFooter}
             displayPositionsCount={displayCount}

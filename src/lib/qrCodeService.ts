@@ -19,7 +19,7 @@ export function getBaseUrl(): string {
     return window.location.origin;
   }
   // 3. Server-side fallback
-  return 'https://meelad-2k26.vercel.app';
+  return 'https://meelad-gold.vercel.app';
 }
 
 export function buildSmartPublicUrl({ type, programmeSlug, categorySlug, filters }: SmartUrlParams): string {
@@ -191,6 +191,82 @@ export async function shareNativeUrl(data: { title: string; text: string; url: s
   return copyTextToClipboard(data.url);
 }
 
+export async function downloadElementAsPNG(elementId: string, filename: string): Promise<void> {
+  const element = document.getElementById(elementId);
+  if (!element) {
+    window.print();
+    return;
+  }
+  
+  try {
+    const bbox = element.getBoundingClientRect();
+    const width = bbox.width || 800;
+    const height = bbox.height || 1000;
+
+    const clone = element.cloneNode(true) as HTMLElement;
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(clone);
+    
+    // Copy stylesheets
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map(s => s.outerHTML)
+      .join('');
+
+    const data = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+      <foreignObject width="100%" height="100%">
+        <div xmlns="http://www.w3.org/1999/xhtml">
+          ${styles}
+          ${wrapper.innerHTML}
+        </div>
+      </foreignObject>
+    </svg>`;
+
+    const img = new Image();
+    const blob = new Blob([data], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = width * 2;
+          canvas.height = height * 2;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.scale(2, 2);
+            ctx.drawImage(img, 0, 0);
+            const pngUrl = canvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = pngUrl;
+            a.download = `${filename}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            resolve();
+          } else {
+            URL.revokeObjectURL(url);
+            window.print();
+            resolve();
+          }
+        } catch (e) {
+          URL.revokeObjectURL(url);
+          window.print();
+          resolve();
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        window.print();
+        resolve();
+      };
+      img.src = url;
+    });
+  } catch (err) {
+    window.print();
+  }
+}
+
 export async function copyTextToClipboard(text: string): Promise<boolean> {
   if (typeof navigator !== 'undefined' && navigator.clipboard) {
     try {
@@ -200,7 +276,6 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
       console.warn('Clipboard write failure:', e);
     }
   }
-  // Fallback
   const textArea = document.createElement('textarea');
   textArea.value = text;
   document.body.appendChild(textArea);
@@ -214,3 +289,4 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
     return false;
   }
 }
+

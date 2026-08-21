@@ -15,7 +15,24 @@ import {
   ProgrammeResult, 
   SiteSettings 
 } from '@/lib/cmsService';
-import { ArrowLeft, Download, Share2, Check, Loader2, Lock, AlertTriangle } from 'lucide-react';
+import { 
+  downloadElementAsPNG, 
+  copyTextToClipboard 
+} from '@/lib/qrCodeService';
+import { 
+  ArrowLeft, 
+  Download, 
+  Share2, 
+  Check, 
+  Loader2, 
+  Lock, 
+  AlertTriangle,
+  MessageSquare,
+  Copy,
+  Printer,
+  Smartphone,
+  LayoutGrid
+} from 'lucide-react';
 
 export default function PosterStyleResultPage() {
   const params = useParams();
@@ -28,6 +45,9 @@ export default function PosterStyleResultPage() {
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [isDownloadingPNG, setIsDownloadingPNG] = useState(false);
+  const [posterAspectRatio, setPosterAspectRatio] = useState<'4:5' | '9:16'>('4:5');
 
   useEffect(() => {
     if (programmeSlug && categorySlug) {
@@ -48,8 +68,29 @@ export default function PosterStyleResultPage() {
     setIsLoading(false);
   };
 
-  const handleDownload = () => {
-    window.print();
+  const handleDownloadPNG = async () => {
+    setIsDownloadingPNG(true);
+    try {
+      await downloadElementAsPNG('result-poster-element', `poster-${programmeSlug}-${categorySlug}`);
+    } finally {
+      setIsDownloadingPNG(false);
+    }
+  };
+
+  const handleWhatsAppShare = () => {
+    const title = `${programme?.title_en || 'Result'} (${category?.name_en || 'General'})`;
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    const message = encodeURIComponent(`🏆 *Milad Fest 2K26 Official Result Poster*\n*${title}*\n\nView official result poster:\n${url}`);
+    window.open(`https://api.whatsapp.com/send?text=${message}`, '_blank');
+  };
+
+  const handleCopyLink = async () => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    const success = await copyTextToClipboard(url);
+    if (success) {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    }
   };
 
   const isPublished = results.length > 0 && results.some(r => r.is_published);
@@ -126,31 +167,77 @@ export default function PosterStyleResultPage() {
       </div>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-6 w-full">
-        {/* Navigation & Action Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
+        {/* Aspect Ratio Switcher & Action Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 print:hidden bg-emerald-900/40 p-4 rounded-3xl border border-emerald-800/60 shadow-xl">
           <Link
             href="/results"
             className="inline-flex items-center gap-2 text-xs font-bold text-amber-400 hover:underline"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to All Results</span>
+            <span>All Results</span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          {/* Format Switcher */}
+          <div className="flex items-center gap-1 bg-emerald-950 p-1 rounded-2xl border border-emerald-800">
             <button
-              onClick={() => setIsShareModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 border border-emerald-700 text-xs font-bold transition-all shadow-md"
+              onClick={() => setPosterAspectRatio('4:5')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                posterAspectRatio === '4:5'
+                  ? 'bg-amber-500 text-emerald-950 shadow-md'
+                  : 'text-emerald-300 hover:text-emerald-100'
+              }`}
             >
-              <Share2 className="w-4 h-4 text-amber-400" />
-              <span>Share Result & QR</span>
+              4:5 Feed Poster
+            </button>
+            <button
+              onClick={() => setPosterAspectRatio('9:16')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                posterAspectRatio === '9:16'
+                  ? 'bg-amber-500 text-emerald-950 shadow-md'
+                  : 'text-emerald-300 hover:text-emerald-100'
+              }`}
+            >
+              9:16 Story / Status
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Direct WhatsApp Share */}
+            <button
+              onClick={handleWhatsAppShare}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold transition-all shadow-md"
+              title="Share directly to WhatsApp"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>WhatsApp</span>
             </button>
 
+            {/* Copy Link */}
             <button
-              onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-emerald-950 text-xs font-extrabold transition-all shadow-lg shadow-amber-500/20"
+              onClick={handleCopyLink}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-900 hover:bg-emerald-800 text-emerald-200 border border-emerald-700 text-xs font-bold transition-all"
             >
-              <Download className="w-4 h-4" />
-              <span>Download Poster</span>
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-amber-400" />}
+              <span>{copiedLink ? 'Copied!' : 'Copy Link'}</span>
+            </button>
+
+            {/* Modal Share & QR */}
+            <button
+              onClick={() => setIsShareModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 border border-emerald-700 text-xs font-bold transition-all"
+            >
+              <Share2 className="w-3.5 h-3.5 text-amber-400" />
+              <span>Share QR</span>
+            </button>
+
+            {/* Download PNG */}
+            <button
+              onClick={handleDownloadPNG}
+              disabled={isDownloadingPNG}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-emerald-950 text-xs font-black transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
+            >
+              {isDownloadingPNG ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              <span>Download PNG</span>
             </button>
           </div>
         </div>
@@ -161,8 +248,12 @@ export default function PosterStyleResultPage() {
             settings={siteSettings}
             programmeTitle={programme?.title_en || 'Programme'}
             categoryName={category?.name_en || 'General Category'}
+            gender={programme?.gender}
+            venue={programme?.venue}
+            eventDate={programme?.event_date}
             results={results}
             template={results[0]?.poster_template || 'royal-gold'}
+            aspectRatio={posterAspectRatio}
             posterTitle={results[0]?.poster_title || 'OFFICIAL COMPETITION RESULT'}
             customFooterText={results[0]?.custom_footer_text}
             displayPositionsCount={3}

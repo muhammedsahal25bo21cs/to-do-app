@@ -213,6 +213,7 @@ export interface Programme {
   speaker_ids?: string[];
   speaker_name?: string;
   image_url?: string;
+  gender?: string;
   competition_type: 'Individual' | 'Team' | 'Individual+Team';
   
   // Registration Configuration
@@ -690,7 +691,8 @@ export async function getAdminProfiles(): Promise<AdminProfile[]> {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.from('admin_profiles').select('*').order('created_at', { ascending: false });
-      if (data && !error && data.length > 0) return data;
+      if (data && !error) return data;
+      if (error) console.warn('Supabase getAdminProfiles error:', error);
     } catch (e) {
       console.warn('Supabase getAdminProfiles error', e);
     }
@@ -1430,7 +1432,8 @@ export async function getProgrammeRegistrations(programmeId?: string): Promise<P
       let query = supabase.from('programme_registrations').select('*');
       if (programmeId) query = query.eq('programme_id', programmeId);
       const { data, error } = await query;
-      if (data && !error && data.length > 0) return data;
+      if (data && !error) return data;
+      if (error) console.warn('Supabase getProgrammeRegistrations error:', error);
     } catch (e) {
       console.warn('Supabase getProgrammeRegistrations error', e);
     }
@@ -1445,19 +1448,22 @@ export async function registerParticipant(
   studentId?: string,
   teamId?: string,
   status: 'Registered' | 'Confirmed' | 'Withdrawn' | 'Disqualified' = 'Registered',
-  attendance: 'Present' | 'Absent' | 'Unmarked' = 'Unmarked'
+  attendance: 'Present' | 'Absent' | 'Unmarked' = 'Unmarked',
+  isAdminOverride: boolean = false
 ): Promise<ProgrammeRegistration> {
   const programmes = await getProgrammes(false, true);
   const programme = programmes.find(p => p.id === programmeId);
 
   if (programme) {
-    if (programme.registration_open === false) {
-      throw new Error('Registration for this programme is currently closed.');
-    }
-    if (programme.registration_deadline) {
-      const deadline = new Date(programme.registration_deadline).getTime();
-      if (Date.now() > deadline) {
-        throw new Error('Registration deadline for this programme has passed.');
+    if (!isAdminOverride) {
+      if (programme.registration_open === false) {
+        throw new Error('Registration for this programme is currently closed.');
+      }
+      if (programme.registration_deadline) {
+        const deadline = new Date(programme.registration_deadline).getTime();
+        if (Date.now() > deadline) {
+          throw new Error('Registration deadline for this programme has passed.');
+        }
       }
     }
   }

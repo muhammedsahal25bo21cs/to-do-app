@@ -3,8 +3,10 @@
 import React, { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getCertificateById, GeneratedCertificate } from '@/lib/cmsService';
+import { CertificateRenderer } from '@/components/CertificateRenderer';
 import { HeaderNav } from '@/components/HeaderNav';
 import { FooterSection } from '@/components/FooterSection';
+import { downloadElementAsPNG, copyTextToClipboard } from '@/lib/qrCodeService';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -15,7 +17,12 @@ import {
   Calendar, 
   User, 
   ArrowLeft,
-  QrCode
+  QrCode,
+  Download,
+  Printer,
+  MessageSquare,
+  Copy,
+  Check
 } from 'lucide-react';
 
 export default function PublicCertificateVerificationPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +31,7 @@ export default function PublicCertificateVerificationPage({ params }: { params: 
 
   const [certificate, setCertificate] = useState<GeneratedCertificate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [searched, setSearched] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (certId) {
@@ -36,16 +43,39 @@ export default function PublicCertificateVerificationPage({ params }: { params: 
     setIsLoading(true);
     const cert = await getCertificateById(code);
     setCertificate(cert);
-    setSearched(true);
     setIsLoading(false);
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-950 via-emerald-900 to-emerald-950 text-emerald-100 flex flex-col justify-between">
-      <HeaderNav />
+  const handleDownloadPNG = async () => {
+    if (certificate) {
+      await downloadElementAsPNG(`cert-container-${certificate.id}`, `certificate-${certificate.id}`);
+    }
+  };
 
-      <main className="flex-1 max-w-4xl mx-auto px-4 py-12 w-full space-y-8">
-        <div className="text-center space-y-3">
+  const handleWhatsAppShare = () => {
+    if (!certificate) return;
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    const message = encodeURIComponent(`📜 *Milad Fest 2K26 Certificate Verification*\nRecipient: *${certificate.recipient_name}*\nAward: *${certificate.certificate_type} — ${certificate.programme_title}*\nCertificate ID: \`${certificate.id}\`\n\nVerify online:\n${url}`);
+    window.open(`https://api.whatsapp.com/send?text=${message}`, '_blank');
+  };
+
+  const handleCopyLink = async () => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    const success = await copyTextToClipboard(url);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-emerald-950 via-emerald-900 to-emerald-950 text-emerald-100 flex flex-col justify-between print:bg-white print:p-0">
+      <div className="print:hidden">
+        <HeaderNav />
+      </div>
+
+      <main className="flex-1 max-w-4xl mx-auto px-4 py-8 sm:py-12 w-full space-y-8">
+        <div className="text-center space-y-3 print:hidden">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-widest">
             <ShieldCheck className="w-4 h-4 text-amber-400" />
             <span>Official Credential Verification</span>
@@ -61,73 +91,64 @@ export default function PublicCertificateVerificationPage({ params }: { params: 
 
         {/* Loading State */}
         {isLoading ? (
-          <div className="text-center py-16 space-y-3 bg-emerald-950/80 border border-emerald-800/80 rounded-3xl p-8 backdrop-blur-xl">
+          <div className="text-center py-16 space-y-3 bg-emerald-950/80 border border-emerald-800/80 rounded-3xl p-8 backdrop-blur-xl print:hidden">
             <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-xs text-amber-300 font-bold">Verifying Certificate Security Hash...</p>
+            <p className="text-xs text-amber-300 font-bold">Verifying Certificate Hash Security...</p>
           </div>
         ) : certificate && (certificate.status === 'Issued' || certificate.status === 'Generated' || certificate.status === 'Draft') ? (
-          /* VALID CERTIFICATE CARD */
-          <div className="bg-emerald-950/90 border-2 border-emerald-500/60 rounded-3xl p-6 sm:p-10 shadow-2xl space-y-8 backdrop-blur-2xl relative overflow-hidden">
-            {/* Background Decorative Accent */}
-            <div className="absolute top-0 right-0 transform translate-x-8 -translate-y-8 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-emerald-800/60 pb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
-                  <CheckCircle2 className="w-8 h-8" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-black uppercase text-emerald-400 tracking-widest block">Status</span>
-                  <h2 className="text-xl font-black text-emerald-300">Valid & Verified Certificate</h2>
-                </div>
+          /* VALID CERTIFICATE CARD & RENDERER */
+          <div className="space-y-6">
+            {/* Top Toolbar Actions for Certificate */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-emerald-950/90 border border-emerald-800/80 p-4 rounded-3xl shadow-xl print:hidden">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <span className="text-xs font-black text-emerald-300">Verified Authentic</span>
+                <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/30 font-bold">
+                  {certificate.id}
+                </span>
               </div>
 
-              <div className="bg-emerald-900/60 border border-emerald-700/60 px-4 py-2 rounded-2xl text-right shrink-0">
-                <span className="text-[10px] text-amber-300 font-extrabold block uppercase tracking-wider">Certificate ID</span>
-                <span className="font-mono text-sm font-black text-amber-400">{certificate.id}</span>
-              </div>
-            </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleWhatsAppShare}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold shadow-md transition-all"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>WhatsApp</span>
+                </button>
 
-            {/* Certificate Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
-              <div className="space-y-1 bg-emerald-900/40 p-4 rounded-2xl border border-emerald-800">
-                <span className="text-[10px] uppercase font-bold text-amber-300 block">Certificate Holder</span>
-                <p className="text-base font-black text-emerald-100">{certificate.recipient_name}</p>
-                {certificate.recipient_code && (
-                  <span className="text-[10px] font-mono text-emerald-400 block font-semibold">ID: {certificate.recipient_code}</span>
-                )}
-              </div>
+                <button
+                  onClick={handleCopyLink}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-900 hover:bg-emerald-800 text-emerald-200 border border-emerald-700 text-xs font-bold transition-all"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-amber-400" />}
+                  <span>{copied ? 'Copied!' : 'Copy Link'}</span>
+                </button>
 
-              <div className="space-y-1 bg-emerald-900/40 p-4 rounded-2xl border border-emerald-800">
-                <span className="text-[10px] uppercase font-bold text-amber-300 block">Certificate Type & Position</span>
-                <p className="text-base font-black text-amber-400">
-                  {certificate.certificate_type} {certificate.position ? `(${certificate.position})` : ''}
-                </p>
-                <span className="text-[10px] text-emerald-300 block font-semibold">{certificate.category_name}</span>
-              </div>
+                <button
+                  onClick={handleDownloadPNG}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-emerald-950 text-xs font-black shadow-md transition-all"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Image</span>
+                </button>
 
-              <div className="space-y-1 bg-emerald-900/40 p-4 rounded-2xl border border-emerald-800">
-                <span className="text-[10px] uppercase font-bold text-amber-300 block">Programme Event</span>
-                <p className="text-sm font-extrabold text-emerald-100">{certificate.programme_title}</p>
-                <span className="text-[10px] text-emerald-400 block">{certificate.event_name}</span>
-              </div>
-
-              <div className="space-y-1 bg-emerald-900/40 p-4 rounded-2xl border border-emerald-800">
-                <span className="text-[10px] uppercase font-bold text-amber-300 block">Date of Issue</span>
-                <p className="text-sm font-extrabold text-emerald-100">{certificate.issue_date}</p>
-                <span className="text-[10px] text-emerald-400 block">{certificate.organizer_name}</span>
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-900 hover:bg-emerald-800 text-emerald-200 border border-emerald-700 text-xs font-bold transition-all"
+                >
+                  <Printer className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Print PDF</span>
+                </button>
               </div>
             </div>
 
-            {/* Achievement Wording Banner */}
-            <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-center space-y-1">
-              <span className="text-[10px] uppercase font-black text-amber-300 tracking-wider block">Official Achievement Wording</span>
-              <p className="text-xs sm:text-sm font-serif italic text-emerald-100">
-                "{certificate.achievement_text}"
-              </p>
+            {/* Official Upgraded Certificate Renderer */}
+            <div className="w-full flex justify-center">
+              <CertificateRenderer certificate={certificate} />
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center justify-between pt-4 print:hidden">
               <Link
                 href="/verify"
                 className="text-xs text-amber-400 hover:text-amber-300 font-extrabold flex items-center gap-1.5"
@@ -139,7 +160,7 @@ export default function PublicCertificateVerificationPage({ params }: { params: 
           </div>
         ) : certificate && certificate.status === 'Revoked' ? (
           /* REVOKED CERTIFICATE CARD */
-          <div className="bg-emerald-950/90 border-2 border-red-500/60 rounded-3xl p-8 shadow-2xl space-y-6 text-center backdrop-blur-xl">
+          <div className="bg-emerald-950/90 border-2 border-red-500/60 rounded-3xl p-8 shadow-2xl space-y-6 text-center backdrop-blur-xl print:hidden">
             <div className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center mx-auto text-red-400">
               <AlertTriangle className="w-8 h-8" />
             </div>
@@ -170,7 +191,7 @@ export default function PublicCertificateVerificationPage({ params }: { params: 
           </div>
         ) : (
           /* NOT FOUND CERTIFICATE CARD */
-          <div className="bg-emerald-950/90 border-2 border-amber-500/40 rounded-3xl p-8 shadow-2xl space-y-6 text-center backdrop-blur-xl">
+          <div className="bg-emerald-950/90 border-2 border-amber-500/40 rounded-3xl p-8 shadow-2xl space-y-6 text-center backdrop-blur-xl print:hidden">
             <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
               <XCircle className="w-8 h-8" />
             </div>
@@ -196,7 +217,9 @@ export default function PublicCertificateVerificationPage({ params }: { params: 
         )}
       </main>
 
-      <FooterSection />
+      <div className="print:hidden">
+        <FooterSection />
+      </div>
     </div>
   );
 }

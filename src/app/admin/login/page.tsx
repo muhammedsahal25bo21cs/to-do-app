@@ -48,12 +48,6 @@ export default function AdminLoginPage() {
     }
   };
 
-  const fillDemoRole = (role: AdminRole) => {
-    localStorage.setItem('demo_admin_role', role);
-    setEmail(`admin.${role.toLowerCase().replace(' ', '')}@miladfest.com`);
-    setPassword('admin12345');
-  };
-
   return (
     <div className="min-h-screen bg-emerald-950 text-emerald-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-6">
@@ -162,35 +156,10 @@ export default function AdminLoginPage() {
 
           </form>
 
-          {/* Quick Demo Credentials Helper */}
-          <div className="pt-4 border-t border-emerald-800/40 space-y-2 text-center">
-            <p className="text-[11px] font-semibold text-emerald-400/80">Preview Role Simulator:</p>
-            <div className="grid grid-cols-2 gap-2 text-[10px]">
-              <button
-                onClick={() => fillDemoRole('Super Admin')}
-                className="p-2 rounded-xl bg-emerald-900/60 border border-amber-500/40 text-amber-300 font-bold hover:bg-emerald-800"
-              >
-                Super Admin
-              </button>
-              <button
-                onClick={() => fillDemoRole('Event Manager')}
-                className="p-2 rounded-xl bg-emerald-900/60 border border-emerald-700 text-emerald-300 font-bold hover:bg-emerald-800"
-              >
-                Event Manager
-              </button>
-              <button
-                onClick={() => fillDemoRole('Score Manager')}
-                className="p-2 rounded-xl bg-emerald-900/60 border border-blue-500/40 text-blue-300 font-bold hover:bg-emerald-800"
-              >
-                Score Manager
-              </button>
-              <button
-                onClick={() => fillDemoRole('Result Manager')}
-                className="p-2 rounded-xl bg-emerald-900/60 border border-purple-500/40 text-purple-300 font-bold hover:bg-emerald-800"
-              >
-                Result Manager
-              </button>
-            </div>
+          {/* Security Notice */}
+          <div className="pt-4 border-t border-emerald-800/40 text-center text-emerald-400/80 text-[11px]">
+            <p>Protected Administrator Portal.</p>
+            <p className="mt-0.5 text-emerald-500 font-medium">No account? Contact an existing Super Admin for access.</p>
           </div>
 
         </div>

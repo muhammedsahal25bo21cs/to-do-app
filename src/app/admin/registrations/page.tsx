@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { 
   getProgrammes, 
   getStudents, 
@@ -39,7 +40,13 @@ import {
   Clock,
   ShieldCheck,
   Check,
-  Ban
+  Ban,
+  Loader2,
+  RefreshCw,
+  ExternalLink,
+  Layers,
+  FileText,
+  AlertCircle
 } from 'lucide-react';
 
 export default function ProgrammeRegistrationsAdmin() {
@@ -47,17 +54,22 @@ export default function ProgrammeRegistrationsAdmin() {
   const [students, setStudents] = useState<Student[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedProgrammeId, setSelectedProgrammeId] = useState<string>('');
-  const [registrations, setRegistrations] = useState<ProgrammeRegistration[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [allRegistrations, setAllRegistrations] = useState<ProgrammeRegistration[]>([]);
 
-  // Form & Search
+  // Loading & Error States
+  const [isLoadingProgrammes, setIsLoadingProgrammes] = useState(true);
+  const [programmeError, setProgrammeError] = useState<string | null>(null);
+
+  // Form State
+  const [selectedFormProgrammeId, setSelectedFormProgrammeId] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [studentSearch, setStudentSearch] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formMsg, setFormMsg] = useState<{ text: string; isError: boolean; isWarning?: boolean } | null>(null);
 
   // Filters for Registered List
+  const [filterProgrammeId, setFilterProgrammeId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [attendanceFilter, setAttendanceFilter] = useState<string>('all');
 
@@ -79,43 +91,132 @@ export default function ProgrammeRegistrationsAdmin() {
     loadInitialData();
   }, []);
 
-  useEffect(() => {
-    if (selectedProgrammeId) {
-      loadRegistrations(selectedProgrammeId);
-      setFormMsg(null);
-    }
-  }, [selectedProgrammeId]);
-
   const loadInitialData = async () => {
-    setIsLoading(true);
-    const [prg, std, tm, cat] = await Promise.all([
-      getProgrammes(false),
-      getStudents(false),
-      getTeams(false),
-      getCategories(),
-    ]);
-    setProgrammes(prg);
-    setStudents(std);
-    setTeams(tm);
-    setCategories(cat);
-    if (prg.length > 0) {
-      setSelectedProgrammeId(prg[0].id);
+    setIsLoadingProgrammes(true);
+    setProgrammeError(null);
+    try {
+      const [prg, std, tm, cat, regs] = await Promise.all([
+        getProgrammes(false),
+        getStudents(false),
+        getTeams(false),
+        getCategories(),
+        getProgrammeRegistrations(),
+      ]);
+      setProgrammes(prg);
+      setStudents(std);
+      setTeams(tm);
+      setCategories(cat);
+      setAllRegistrations(regs);
+
+      // Default select first non-archived programme for registration
+      const validPrgs = prg.filter(p => !p.is_archived);
+      if (validPrgs.length > 0 && !selectedFormProgrammeId) {
+        setSelectedFormProgrammeId(validPrgs[0].id);
+      }
+    } catch (err: any) {
+      console.error('Error loading initial registration data:', err);
+      setProgrammeError('Unable to load programmes.');
+    } finally {
+      setIsLoadingProgrammes(false);
     }
-    setIsLoading(false);
   };
 
-  const loadRegistrations = async (prgId: string) => {
-    const data = await getProgrammeRegistrations(prgId);
-    setRegistrations(data);
+  const loadAllRegistrations = async () => {
+    const data = await getProgrammeRegistrations();
+    setAllRegistrations(data);
   };
 
-  const currentProgramme = programmes.find(p => p.id === selectedProgrammeId);
-  const currentCategory = currentProgramme ? categories.find(c => c.id === currentProgramme.category_id) : null;
+  // Filter programmes valid for admin registration
+  const validFormProgrammes = programmes.filter(p => !p.is_archived);
+
+  // Currently selected programme for the form
+  const selectedFormProgramme = programmes.find(p => p.id === selectedFormProgrammeId);
+  const selectedFormCategory = selectedFormProgramme
+    ? categories.find(c => c.id === selectedFormProgramme.category_id || selectedFormProgramme.category_ids?.includes(c.id))
+    : null;
+
+  const isTeamProgramme = selectedFormProgramme?.competition_type === 'Team';
+
+  // Format Programme Option label
+  const formatProgrammeOption = (p: Programme) => {
+    const cat = categories.find(c => c.id === p.category_id || p.category_ids?.includes(c.id));
+    const catName = cat?.name_en || 'General';
+    const type = p.competition_type === 'Team' ? 'Team' : 'Single';
+    const closedNotice = p.registration_open === false ? ' 🔒 [Public Closed]' : '';
+    return `${p.code ? p.code + ' - ' : ''}${p.title_en} • ${catName} • ${type}${closedNotice}`;
+  };
+
+  // Category Mismatch Verification
+  const checkCategoryMismatch = (std?: Student): boolean => {
+    if (!std || !selectedFormCategory) return false;
+    return std.category_class.toLowerCase() !== selectedFormCategory.name_en.toLowerCase();
+  };
+
+  // Live Duplicate Check
+  const isStudentDuplicate = !!(selectedFormProgrammeId && selectedStudentId && allRegistrations.some(r => r.programme_id === selectedFormProgrammeId && r.student_id === selectedStudentId));
+  const isTeamDuplicate = !!(selectedFormProgrammeId && selectedTeamId && allRegistrations.some(r => r.programme_id === selectedFormProgrammeId && r.team_id === selectedTeamId));
+  const isDuplicate = isTeamProgramme ? isTeamDuplicate : isStudentDuplicate;
+
+  // Selected Student & Team objects for summary card
+  const selectedStudentObj = students.find(s => s.id === selectedStudentId);
+  const selectedTeamObj = teams.find(t => t.id === selectedTeamId);
+
+  // Form Submit Handler
+  const handleConfirmRegistration = async () => {
+    if (!selectedFormProgrammeId) {
+      setFormMsg({ text: 'Please select a programme.', isError: true });
+      return;
+    }
+
+    if (isTeamProgramme && !selectedTeamId) {
+      setFormMsg({ text: 'Please select a team for this group programme.', isError: true });
+      return;
+    }
+
+    if (!isTeamProgramme && !selectedStudentId) {
+      setFormMsg({ text: 'Please select a student for this single programme.', isError: true });
+      return;
+    }
+
+    if (isDuplicate) {
+      setFormMsg({ text: isTeamProgramme ? 'Team is already registered for this programme.' : 'Student is already registered for this programme.', isError: true });
+      return;
+    }
+
+    setFormMsg(null);
+    setIsSubmitting(true);
+
+    try {
+      if (isTeamProgramme) {
+        await registerParticipant(selectedFormProgrammeId, 'team', undefined, selectedTeamId, 'Confirmed', 'Unmarked', true);
+        setSelectedTeamId('');
+        setFormMsg({ text: `Successfully registered team "${selectedTeamObj?.name_en}" for ${selectedFormProgramme?.title_en}!`, isError: false });
+      } else {
+        const isMismatch = checkCategoryMismatch(selectedStudentObj);
+        await registerParticipant(selectedFormProgrammeId, 'student', selectedStudentId, selectedStudentObj?.team_id, 'Confirmed', 'Unmarked', true);
+        setSelectedStudentId('');
+        if (isMismatch) {
+          setFormMsg({
+            text: `Registered ${selectedStudentObj?.name_en}! Category Mismatch Notice: Student is in ${selectedStudentObj?.category_class} and registered into ${selectedFormCategory?.name_en} under Admin Override.`,
+            isError: false,
+            isWarning: true,
+          });
+        } else {
+          setFormMsg({ text: `Successfully registered ${selectedStudentObj?.name_en} for ${selectedFormProgramme?.title_en}!`, isError: false });
+        }
+      }
+      await loadAllRegistrations();
+    } catch (err: any) {
+      setFormMsg({ text: err.message || 'Registration failed.', isError: true });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Programme Configuration Updates
   const handleUpdateProgrammeConfig = async (changes: Partial<Programme>) => {
-    if (!selectedProgrammeId) return;
-    await updateProgramme(selectedProgrammeId, changes);
+    if (!selectedFormProgrammeId) return;
+    await updateProgramme(selectedFormProgrammeId, changes);
     const updatedPrgs = await getProgrammes(false);
     setProgrammes(updatedPrgs);
     setFormMsg({ text: 'Programme registration settings updated.', isError: false });
@@ -124,7 +225,7 @@ export default function ProgrammeRegistrationsAdmin() {
   // Review Actions
   const handleApproveRegistration = async (regId: string) => {
     await reviewRegistration(regId, 'Approve');
-    await loadRegistrations(selectedProgrammeId);
+    await loadAllRegistrations();
     setFormMsg({ text: 'Registration approved and confirmed.', isError: false });
   };
 
@@ -133,62 +234,8 @@ export default function ProgrammeRegistrationsAdmin() {
     await reviewRegistration(rejectingId, 'Reject', rejectionReasonText);
     setRejectingId(null);
     setRejectionReasonText('');
-    await loadRegistrations(selectedProgrammeId);
+    await loadAllRegistrations();
     setFormMsg({ text: 'Registration rejected.', isError: false });
-  };
-
-  // Category Mismatch Verification
-  const checkCategoryMismatch = (std?: Student): boolean => {
-    if (!std || !currentCategory) return false;
-    return std.category_class.toLowerCase() !== currentCategory.name_en.toLowerCase();
-  };
-
-  const handleRegisterStudent = async () => {
-    if (!selectedProgrammeId || !selectedStudentId) {
-      setFormMsg({ text: 'Please select a student.', isError: true });
-      return;
-    }
-    setFormMsg(null);
-
-    const std = students.find(s => s.id === selectedStudentId);
-    const isMismatch = checkCategoryMismatch(std);
-
-    try {
-      await registerParticipant(selectedProgrammeId, 'student', selectedStudentId, std?.team_id, 'Confirmed');
-      setSelectedStudentId('');
-      await loadRegistrations(selectedProgrammeId);
-
-      if (isMismatch) {
-        setFormMsg({
-          text: `Category Mismatch Notice: Student belongs to ${std?.category_class} and was registered into ${currentCategory?.name_en} under Admin Override.`,
-          isError: false,
-          isWarning: true,
-        });
-      } else {
-        setFormMsg({ text: `Successfully registered ${std?.name_en}!`, isError: false });
-      }
-    } catch (err: any) {
-      setFormMsg({ text: err.message || 'Registration failed.', isError: true });
-    }
-  };
-
-  const handleRegisterTeam = async () => {
-    if (!selectedProgrammeId || !selectedTeamId) {
-      setFormMsg({ text: 'Please select a team.', isError: true });
-      return;
-    }
-    setFormMsg(null);
-
-    const tm = teams.find(t => t.id === selectedTeamId);
-
-    try {
-      await registerParticipant(selectedProgrammeId, 'team', undefined, selectedTeamId, 'Confirmed');
-      setSelectedTeamId('');
-      await loadRegistrations(selectedProgrammeId);
-      setFormMsg({ text: `Successfully registered team "${tm?.name_en}"!`, isError: false });
-    } catch (err: any) {
-      setFormMsg({ text: err.message || 'Team registration failed.', isError: true });
-    }
   };
 
   // Bulk Register Actions
@@ -212,32 +259,34 @@ export default function ProgrammeRegistrationsAdmin() {
   };
 
   const confirmExecuteBulkRegistration = async () => {
+    if (!selectedFormProgrammeId) return;
     setIsBulkConfirmOpen(false);
-    const summary = await bulkRegisterParticipants(selectedProgrammeId, bulkSelectedStudentIds);
+    const summary = await bulkRegisterParticipants(selectedFormProgrammeId, bulkSelectedStudentIds);
     setBulkSummary(summary);
     setBulkSelectedStudentIds([]);
-    await loadRegistrations(selectedProgrammeId);
+    await loadAllRegistrations();
   };
 
   // Status & Attendance Updates
   const handleUpdateStatus = async (regId: string, status: any) => {
     await updateRegistrationStatus(regId, status);
-    await loadRegistrations(selectedProgrammeId);
+    await loadAllRegistrations();
   };
 
   const handleUpdateAttendance = async (regId: string, attendance: any) => {
     await updateRegistrationAttendance(regId, attendance);
-    await loadRegistrations(selectedProgrammeId);
+    await loadAllRegistrations();
   };
 
   const handleRemoveConfirm = async () => {
     if (removeId) {
       await removeRegistration(removeId);
       setRemoveId(null);
-      await loadRegistrations(selectedProgrammeId);
+      await loadAllRegistrations();
     }
   };
 
+  // Filtered lists
   const filteredStudents = students.filter(s => {
     if (studentSearch.trim()) {
       const q = studentSearch.toLowerCase();
@@ -263,18 +312,19 @@ export default function ProgrammeRegistrationsAdmin() {
     return true;
   });
 
-  const filteredRegistrationsList = registrations.filter(r => {
+  const filteredRegistrationsList = allRegistrations.filter(r => {
+    if (filterProgrammeId !== 'all' && r.programme_id !== filterProgrammeId) return false;
     if (statusFilter !== 'all' && (r.status || 'Registered') !== statusFilter) return false;
     if (attendanceFilter !== 'all' && (r.attendance || 'Unmarked') !== attendanceFilter) return false;
     return true;
   });
 
-  // Calculate Registration Statistics
-  const pendingCount = registrations.filter(r => r.status === 'Pending').length;
-  const confirmedCount = registrations.filter(r => r.status === 'Confirmed' || r.status === 'Registered').length;
-  const rejectedCount = registrations.filter(r => r.status === 'Rejected').length;
-  const presentCount = registrations.filter(r => r.attendance === 'Present').length;
-  const absentCount = registrations.filter(r => r.attendance === 'Absent').length;
+  // Calculate Statistics
+  const pendingCount = allRegistrations.filter(r => r.status === 'Pending').length;
+  const confirmedCount = allRegistrations.filter(r => r.status === 'Confirmed' || r.status === 'Registered').length;
+  const rejectedCount = allRegistrations.filter(r => r.status === 'Rejected').length;
+  const presentCount = allRegistrations.filter(r => r.attendance === 'Present').length;
+  const absentCount = allRegistrations.filter(r => r.attendance === 'Absent').length;
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
@@ -286,7 +336,7 @@ export default function ProgrammeRegistrationsAdmin() {
             <span>Fast Programme Registration & Attendance Desk</span>
           </h1>
           <p className="text-xs text-emerald-300/80 mt-1">
-            Register competitors with category validation, duplicate protection, bulk multi-select, and live attendance tracking.
+            Register competitors dynamically with mandatory programme selection, category auto-fill, duplicate protection, and live attendance tracking.
           </p>
         </div>
 
@@ -295,18 +345,19 @@ export default function ProgrammeRegistrationsAdmin() {
             setIsBulkModalOpen(true);
             setBulkSummary(null);
           }}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-emerald-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 transition-all shrink-0 self-start sm:self-center"
+          disabled={!selectedFormProgrammeId}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-emerald-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 transition-all shrink-0 self-start sm:self-center disabled:opacity-50"
         >
           <Sparkles className="w-4 h-4" />
           <span>Bulk Register Students</span>
         </button>
       </div>
 
-      {/* Registration Statistics Cards */}
+      {/* Statistics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         <div className="bg-emerald-950/80 border border-emerald-800/80 rounded-2xl p-4 text-center space-y-1">
           <span className="text-[10px] text-amber-300 font-bold uppercase tracking-wider block">Total Registered</span>
-          <span className="text-xl font-black text-gold-gradient">{registrations.length}</span>
+          <span className="text-xl font-black text-gold-gradient">{allRegistrations.length}</span>
         </div>
 
         <div className="bg-emerald-950/80 border border-amber-500/40 rounded-2xl p-4 text-center space-y-1">
@@ -336,24 +387,45 @@ export default function ProgrammeRegistrationsAdmin() {
       </div>
 
       {/* Programme Registration Settings Controls Bar */}
-      {currentProgramme && (
+      {selectedFormProgramme && (
         <div className="bg-emerald-950/90 border border-emerald-800/80 rounded-3xl p-5 shadow-xl space-y-4">
           <div className="flex items-center justify-between border-b border-emerald-800/60 pb-3">
             <h3 className="text-xs font-black uppercase text-amber-300 flex items-center gap-2 tracking-wider">
               <Settings className="w-4 h-4 text-amber-400" />
-              <span>Programme Public Registration Controls</span>
+              <span>Programme Public Registration Controls ({selectedFormProgramme.title_en})</span>
             </h3>
             <span className="text-[10px] text-emerald-400 font-bold">
-              ID: {currentProgramme.id}
+              ID: {selectedFormProgramme.id}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 text-xs">
+            {/* Select Programme Option */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-bold text-amber-300">Select Programme *</label>
+              <select
+                value={selectedFormProgrammeId}
+                onChange={(e) => {
+                  setSelectedFormProgrammeId(e.target.value);
+                  setSelectedStudentId('');
+                  setSelectedTeamId('');
+                  setFormMsg(null);
+                }}
+                className="w-full px-3 py-2 rounded-xl bg-emerald-900 border-2 border-amber-500/60 text-amber-300 font-extrabold text-xs focus:outline-none focus:border-amber-400"
+              >
+                {validFormProgrammes.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.code ? `${p.code} - ` : ''}{p.title_en}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Registration Mode */}
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-emerald-300">Registration Mode</label>
               <select
-                value={currentProgramme.registration_mode || 'Both'}
+                value={selectedFormProgramme.registration_mode || 'Both'}
                 onChange={(e) => handleUpdateProgrammeConfig({ registration_mode: e.target.value as any })}
                 className="w-full px-3 py-2 rounded-xl bg-emerald-900 border border-emerald-700 text-emerald-100 font-extrabold"
               >
@@ -367,7 +439,7 @@ export default function ProgrammeRegistrationsAdmin() {
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-emerald-300">Approval Mode</label>
               <select
-                value={currentProgramme.approval_mode || 'Automatic'}
+                value={selectedFormProgramme.approval_mode || 'Automatic'}
                 onChange={(e) => handleUpdateProgrammeConfig({ approval_mode: e.target.value as any })}
                 className="w-full px-3 py-2 rounded-xl bg-emerald-900 border border-emerald-700 text-emerald-100 font-extrabold"
               >
@@ -380,7 +452,7 @@ export default function ProgrammeRegistrationsAdmin() {
             <div className="space-y-1">
               <label className="block text-[11px] font-bold text-emerald-300">Registration Open</label>
               <select
-                value={currentProgramme.registration_open === false ? 'Closed' : 'Open'}
+                value={selectedFormProgramme.registration_open === false ? 'Closed' : 'Open'}
                 onChange={(e) => handleUpdateProgrammeConfig({ registration_open: e.target.value === 'Open' })}
                 className="w-full px-3 py-2 rounded-xl bg-emerald-900 border border-emerald-700 text-emerald-100 font-extrabold"
               >
@@ -395,7 +467,7 @@ export default function ProgrammeRegistrationsAdmin() {
               <input
                 type="number"
                 placeholder="Unlimited"
-                value={currentProgramme.max_participants || ''}
+                value={selectedFormProgramme.max_participants || ''}
                 onChange={(e) => handleUpdateProgrammeConfig({ max_participants: e.target.value ? parseInt(e.target.value) : undefined })}
                 className="w-full px-3 py-2 rounded-xl bg-emerald-900 border border-emerald-700 text-emerald-100 font-extrabold placeholder:text-emerald-600"
               />
@@ -416,91 +488,246 @@ export default function ProgrammeRegistrationsAdmin() {
         </div>
       )}
 
-      {/* Main Registration Control Grid */}
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Add Registration Form */}
+        {/* Add Single Registration Form */}
         <div className="bg-emerald-950/80 border border-emerald-800/60 rounded-3xl p-6 shadow-xl space-y-5 h-fit">
           <h2 className="text-base font-bold text-emerald-100 border-b border-emerald-800/60 pb-3 flex items-center gap-2">
             <Plus className="w-5 h-5 text-amber-400" />
             <span>Add Single Registration</span>
           </h2>
 
-          {/* Student Registration Form with Search */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-              <UserCheck className="w-4 h-4" />
-              <span>Register Student</span>
-            </h3>
-
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-amber-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                placeholder="Filter student list..."
-                value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-emerald-900/60 border border-emerald-800 text-emerald-100 text-xs focus:outline-none"
-              />
+          {/* LOADING STATE */}
+          {isLoadingProgrammes && (
+            <div className="p-8 text-center space-y-3 bg-emerald-900/30 rounded-2xl border border-emerald-800">
+              <Loader2 className="w-8 h-8 text-amber-400 animate-spin mx-auto" />
+              <p className="text-xs font-bold text-emerald-200">Loading programmes...</p>
             </div>
+          )}
 
-            <select
-              value={selectedStudentId}
-              onChange={(e) => setSelectedStudentId(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-emerald-900 border border-emerald-800 text-emerald-100 text-xs"
-            >
-              <option value="">-- Choose Student --</option>
-              {filteredStudents.map(s => {
-                const isMismatch = checkCategoryMismatch(s);
-                return (
-                  <option key={s.id} value={s.id}>
-                    {s.student_id_code} - {s.name_en} ({s.category_class}) {isMismatch ? '⚠️ [Mismatch]' : ''}
-                  </option>
-                );
-              })}
-            </select>
-
-            {/* Category Mismatch Warning Banner */}
-            {selectedStudentId && checkCategoryMismatch(students.find(s => s.id === selectedStudentId)) && (
-              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 font-semibold flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
-                <span>Warning: Student belongs to a different category than event ({currentCategory?.name_en}).</span>
-              </div>
-            )}
-
-            <button
-              onClick={handleRegisterStudent}
-              className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-emerald-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 transition-all"
-            >
-              Register Student Now
-            </button>
-          </div>
-
-          {/* Team Registration Form (If Team/Individual+Team) */}
-          {currentProgramme?.competition_type !== 'Individual' && (
-            <div className="pt-4 border-t border-emerald-800/40 space-y-3">
-              <h3 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                <Users className="w-4 h-4" />
-                <span>Register Team</span>
-              </h3>
-
-              <select
-                value={selectedTeamId}
-                onChange={(e) => setSelectedTeamId(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-emerald-900 border border-emerald-800 text-emerald-100 text-xs"
-              >
-                <option value="">-- Choose Team --</option>
-                {teams.map(t => (
-                  <option key={t.id} value={t.id}>{t.code} - {t.name_en}</option>
-                ))}
-              </select>
-
+          {/* ERROR STATE */}
+          {!isLoadingProgrammes && programmeError && (
+            <div className="p-6 text-center space-y-3 bg-red-500/10 border border-red-500/30 rounded-2xl">
+              <AlertCircle className="w-8 h-8 text-red-400 mx-auto" />
+              <p className="text-xs font-bold text-red-300">{programmeError}</p>
               <button
-                onClick={handleRegisterTeam}
-                className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-emerald-100 font-extrabold text-xs transition-all"
+                onClick={loadInitialData}
+                className="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-400 text-white font-extrabold text-xs inline-flex items-center gap-2"
               >
-                Register Team Now
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Retry</span>
               </button>
+            </div>
+          )}
+
+          {/* EMPTY PROGRAMMES STATE */}
+          {!isLoadingProgrammes && !programmeError && validFormProgrammes.length === 0 && (
+            <div className="p-6 text-center space-y-4 bg-emerald-900/30 border border-emerald-800 rounded-2xl">
+              <Layers className="w-8 h-8 text-amber-400 mx-auto" />
+              <div>
+                <h3 className="text-sm font-bold text-emerald-100">No programmes available for registration</h3>
+                <p className="text-xs text-emerald-400/80 mt-1">Please create a programme first to start registering participants.</p>
+              </div>
+              <Link
+                href="/admin/programmes"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-emerald-950 font-extrabold text-xs shadow-lg"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Programme</span>
+              </Link>
+            </div>
+          )}
+
+          {/* FORM BODY */}
+          {!isLoadingProgrammes && !programmeError && validFormProgrammes.length > 0 && (
+            <div className="space-y-4">
+
+              {/* 1. REQUIRED PROGRAMME SELECTOR AT THE TOP */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-black text-amber-300 uppercase tracking-wider">
+                  Programme <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={selectedFormProgrammeId}
+                  onChange={(e) => {
+                    setSelectedFormProgrammeId(e.target.value);
+                    setSelectedStudentId('');
+                    setSelectedTeamId('');
+                    setFormMsg(null);
+                  }}
+                  className="w-full px-3.5 py-3 rounded-2xl bg-emerald-900 border-2 border-amber-500/60 text-emerald-100 font-extrabold text-xs focus:outline-none focus:border-amber-400 shadow-inner"
+                >
+                  <option value="">-- Select Programme --</option>
+                  {validFormProgrammes.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {formatProgrammeOption(p)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 2. AUTO-FILLED PROGRAMME DETAILS CARD */}
+              {selectedFormProgramme && (
+                <div className="p-3.5 rounded-2xl bg-emerald-900/50 border border-emerald-800 space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-[11px] font-extrabold text-amber-300 border-b border-emerald-800/60 pb-1.5">
+                    <span>Programme Auto-Details</span>
+                    <span className="px-2 py-0.5 rounded bg-emerald-800 text-emerald-200">{selectedFormProgramme.code || 'PRG'}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                      <span className="text-emerald-400 block font-bold">Category / Level</span>
+                      <span className="font-black text-emerald-100">{selectedFormCategory?.name_en || 'General'}</span>
+                    </div>
+                    <div>
+                      <span className="text-emerald-400 block font-bold">Programme Type</span>
+                      <span className="font-black text-amber-300">{isTeamProgramme ? 'Team / Group' : 'Single / Individual'}</span>
+                    </div>
+                    <div>
+                      <span className="text-emerald-400 block font-bold">Venue</span>
+                      <span className="font-black text-emerald-100">{selectedFormProgramme.venue || 'Main Stage'}</span>
+                    </div>
+                    <div>
+                      <span className="text-emerald-400 block font-bold">Max Score</span>
+                      <span className="font-black text-emerald-100">{selectedFormProgramme.max_score || 100}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. DYNAMIC PARTICIPANT SELECTION */}
+              {selectedFormProgrammeId && (
+                <>
+                  {isTeamProgramme ? (
+                    /* TEAM SELECTION FLOW */
+                    <div className="space-y-3 pt-2 border-t border-emerald-800/60">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                          <Users className="w-4 h-4" />
+                          <span>Select Team <span className="text-red-400">*</span></span>
+                        </label>
+                        <Link href="/admin/teams" className="text-[10px] text-amber-400 hover:underline flex items-center gap-1">
+                          <Plus className="w-3 h-3" />
+                          <span>Create Team</span>
+                        </Link>
+                      </div>
+
+                      <select
+                        value={selectedTeamId}
+                        onChange={(e) => setSelectedTeamId(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-emerald-900 border border-emerald-800 text-emerald-100 text-xs font-bold"
+                      >
+                        <option value="">-- Choose Team --</option>
+                        {teams.map(t => (
+                          <option key={t.id} value={t.id}>{t.code || 'TEAM'} - {t.name_en}</option>
+                        ))}
+                      </select>
+
+                      {selectedTeamObj && (
+                        <div className="p-3 rounded-xl bg-emerald-900/30 border border-emerald-800 text-xs space-y-1">
+                          <p className="font-bold text-emerald-100">Team: {selectedTeamObj.name_en}</p>
+                          <p className="text-[11px] text-emerald-400">Total Roster: {students.filter(s => s.team_id === selectedTeamObj.id).length} members</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* INDIVIDUAL STUDENT SELECTION FLOW */
+                    <div className="space-y-3 pt-2 border-t border-emerald-800/60">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                          <UserCheck className="w-4 h-4" />
+                          <span>Select Student <span className="text-red-400">*</span></span>
+                        </label>
+                        <Link href="/admin/students" className="text-[10px] text-amber-400 hover:underline flex items-center gap-1">
+                          <UserPlus className="w-3 h-3" />
+                          <span>Add Student</span>
+                        </Link>
+                      </div>
+
+                      {/* Search Student Filter */}
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-amber-400 absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          placeholder="Filter student list by name or ID..."
+                          value={studentSearch}
+                          onChange={(e) => setStudentSearch(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2 rounded-xl bg-emerald-900/60 border border-emerald-800 text-emerald-100 text-xs focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Student Selector */}
+                      <select
+                        value={selectedStudentId}
+                        onChange={(e) => setSelectedStudentId(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-emerald-900 border border-emerald-800 text-emerald-100 text-xs font-bold"
+                      >
+                        <option value="">-- Choose Student --</option>
+                        {filteredStudents.map(s => {
+                          const isMismatch = checkCategoryMismatch(s);
+                          return (
+                            <option key={s.id} value={s.id}>
+                              {s.student_id_code} - {s.name_en} ({s.category_class}) {isMismatch ? '⚠️ [Mismatch]' : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+
+                      {/* Category Mismatch Warning */}
+                      {selectedStudentId && checkCategoryMismatch(selectedStudentObj) && (
+                        <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 font-semibold flex items-center gap-1.5">
+                          <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                          <span>Category Warning: Student is in {selectedStudentObj?.category_class} (Programme is {selectedFormCategory?.name_en}).</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 4. DUPLICATE CHECK WARNING BANNER */}
+                  {isDuplicate && (
+                    <div className="p-3 rounded-2xl bg-red-500/20 border border-red-500/40 text-xs text-red-300 font-bold flex items-center gap-2">
+                      <XCircle className="w-5 h-5 text-red-400 shrink-0" />
+                      <span>{isTeamProgramme ? 'Team is already registered for this programme.' : 'Student is already registered for this programme.'}</span>
+                    </div>
+                  )}
+
+                  {/* 5. PRE-REGISTRATION SUMMARY CARD */}
+                  {(selectedStudentId || selectedTeamId) && !isDuplicate && (
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
+                      <div className="flex items-center gap-1.5 text-amber-300 font-extrabold">
+                        <FileText className="w-4 h-4 text-amber-400" />
+                        <span>Registration Summary</span>
+                      </div>
+                      <div className="text-[11px] space-y-1 text-emerald-200">
+                        <p><strong className="text-emerald-100">Programme:</strong> {selectedFormProgramme?.title_en}</p>
+                        <p><strong className="text-emerald-100">Category:</strong> {selectedFormCategory?.name_en || 'General'}</p>
+                        <p><strong className="text-emerald-100">Participant:</strong> {isTeamProgramme ? selectedTeamObj?.name_en : `${selectedStudentObj?.student_id_code} - ${selectedStudentObj?.name_en}`}</p>
+                        <p><strong className="text-emerald-100">Type:</strong> {isTeamProgramme ? 'Team' : 'Single'}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 6. CONFIRM REGISTRATION BUTTON */}
+                  <button
+                    onClick={handleConfirmRegistration}
+                    disabled={isSubmitting || isDuplicate || (!selectedStudentId && !selectedTeamId)}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-emerald-950 font-black text-xs shadow-xl shadow-amber-500/20 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Registering...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Confirm Registration</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -512,11 +739,22 @@ export default function ProgrammeRegistrationsAdmin() {
               <h2 className="text-base font-bold text-emerald-100">
                 Registered Competitors ({filteredRegistrationsList.length})
               </h2>
-              <p className="text-xs text-emerald-400/80">Manage live status & attendance per competitor</p>
+              <p className="text-xs text-emerald-400/80">Manage status & attendance per competitor</p>
             </div>
 
             {/* List Filters */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={filterProgrammeId}
+                onChange={(e) => setFilterProgrammeId(e.target.value)}
+                className="px-2.5 py-1 rounded-xl bg-emerald-900 border border-emerald-800 text-emerald-200 text-[11px] font-bold"
+              >
+                <option value="all">All Programmes ({allRegistrations.length})</option>
+                {programmes.map(p => (
+                  <option key={p.id} value={p.id}>{p.code || 'PRG'} - {p.title_en}</option>
+                ))}
+              </select>
+
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -549,6 +787,8 @@ export default function ProgrammeRegistrationsAdmin() {
           ) : (
             <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
               {filteredRegistrationsList.map((reg) => {
+                const prg = programmes.find(p => p.id === reg.programme_id);
+                const cat = prg ? categories.find(c => c.id === prg.category_id || prg.category_ids?.includes(c.id)) : null;
                 const std = students.find(s => s.id === reg.student_id);
                 const tm = teams.find(t => t.id === reg.team_id || (std && std.team_id === t.id));
                 const isMismatch = checkCategoryMismatch(std);
@@ -559,9 +799,12 @@ export default function ProgrammeRegistrationsAdmin() {
                     className="p-4 rounded-2xl bg-emerald-900/30 border border-emerald-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                   >
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                          {reg.participant_type}
+                          {prg ? `${prg.code || 'PRG'} • ${prg.title_en}` : reg.programme_id}
+                        </span>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-800 text-emerald-200">
+                          {cat?.name_en || 'General'}
                         </span>
                         {isMismatch && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500 text-emerald-950">
@@ -571,11 +814,11 @@ export default function ProgrammeRegistrationsAdmin() {
                       </div>
 
                       <h3 className="text-sm font-extrabold text-emerald-100">
-                        {std ? `${std.student_id_code} - ${std.name_en}` : tm?.name_en}
+                        {std ? `${std.student_id_code} - ${std.name_en}` : tm?.name_en || 'Team Participant'}
                       </h3>
 
                       <p className="text-xs text-amber-400 font-semibold mt-0.5">
-                        Team: {tm?.name_en || 'Independent'}
+                        Team: {tm?.name_en || 'Independent'} | Reg ID: <span className="font-mono text-emerald-300">{reg.id}</span>
                       </p>
                     </div>
 
@@ -673,7 +916,7 @@ export default function ProgrammeRegistrationsAdmin() {
               </div>
               <h2 className="text-xl font-black text-emerald-100">Bulk Register Competitors</h2>
               <p className="text-xs text-emerald-400/80 mt-0.5">
-                Select multiple students to register them into <span className="font-bold text-amber-300">{currentProgramme?.title_en}</span> simultaneously.
+                Select multiple students to register them into <span className="font-bold text-amber-300">{selectedFormProgramme?.title_en}</span> simultaneously.
               </p>
             </div>
 
@@ -713,7 +956,7 @@ export default function ProgrammeRegistrationsAdmin() {
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
               {filteredBulkStudents.map((s) => {
                 const isSelected = bulkSelectedStudentIds.includes(s.id);
-                const isAlreadyReg = registrations.some(r => r.student_id === s.id);
+                const isAlreadyReg = allRegistrations.some(r => r.programme_id === selectedFormProgrammeId && r.student_id === s.id);
 
                 return (
                   <label
@@ -779,7 +1022,7 @@ export default function ProgrammeRegistrationsAdmin() {
         onClose={() => setIsBulkConfirmOpen(false)}
         onConfirm={confirmExecuteBulkRegistration}
         title="Confirm Bulk Registration"
-        message={`Register ${bulkSelectedStudentIds.length} students for ${currentProgramme?.title_en || 'Programme'} - ${currentCategory?.name_en || 'Category'}?`}
+        message={`Register ${bulkSelectedStudentIds.length} students for ${selectedFormProgramme?.title_en || 'Programme'} - ${selectedFormCategory?.name_en || 'Category'}?`}
         confirmText="Confirm"
       />
 

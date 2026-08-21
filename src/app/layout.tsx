@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { LanguageProvider } from "@/context/LanguageContext";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://meelad-2k26.vercel.app";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://meelad-gold.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

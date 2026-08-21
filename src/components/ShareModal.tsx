@@ -18,7 +18,8 @@ import {
   X, 
   ExternalLink, 
   Sparkles,
-  Smartphone
+  Smartphone,
+  MessageSquare
 } from 'lucide-react';
 
 export interface ShareModalProps {
@@ -72,9 +73,14 @@ export function ShareModal({
     const success = await copyTextToClipboard(publicUrl);
     if (success) {
       setCopied(true);
-      showToast('Link copied.');
+      showToast('Link copied to clipboard!');
       setTimeout(() => setCopied(false), 2500);
     }
+  };
+
+  const handleWhatsAppShare = () => {
+    const message = encodeURIComponent(`🏆 *Milad Fest 2K26 — ${title}*\n${subtitle}\n\nView official publication & results:\n${publicUrl}`);
+    window.open(`https://api.whatsapp.com/send?text=${message}`, '_blank');
   };
 
   const handleNativeShare = async () => {
@@ -91,7 +97,7 @@ export function ShareModal({
   const handleDownloadQR = async () => {
     try {
       await downloadQRCodePNG(publicUrl, filename, title, subtitle);
-      showToast('QR Code image downloaded cleanly!');
+      showToast('QR Code image downloaded!');
     } catch (err) {
       alert('Failed to download QR code image.');
     }
@@ -99,11 +105,11 @@ export function ShareModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-emerald-950 border-2 border-emerald-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200 relative overflow-hidden">
+      <div className="bg-emerald-950 border-2 border-emerald-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 relative overflow-hidden">
         
         {/* Toast Notification Header Overlay */}
         {toastMsg && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-emerald-950 px-4 py-1.5 rounded-full text-xs font-black shadow-lg flex items-center gap-1.5 z-20 animate-in slide-in-from-top-2">
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-emerald-950 px-4 py-1.5 rounded-full text-xs font-black shadow-lg flex items-center gap-1.5 z-20">
             <Check className="w-3.5 h-3.5" />
             <span>{toastMsg}</span>
           </div>
@@ -116,7 +122,7 @@ export function ShareModal({
               <Share2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-black text-emerald-100">Public Share & QR Code</h3>
+              <h3 className="text-base font-black text-emerald-100">Public Share & Verification</h3>
               <p className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Milad Fest 2K26</p>
             </div>
           </div>
@@ -138,7 +144,7 @@ export function ShareModal({
         {/* QR Code Preview Card */}
         <div className="bg-white p-4 rounded-2xl border-4 border-amber-500/40 shadow-inner flex flex-col items-center justify-center space-y-2">
           {isGenerating || !qrDataUrl ? (
-            <div className="h-48 flex items-center justify-center text-xs text-emerald-900 font-bold gap-2">
+            <div className="h-44 flex items-center justify-center text-xs text-emerald-900 font-bold gap-2">
               <QrCode className="w-6 h-6 animate-pulse text-amber-600" />
               <span>Generating Scannable QR...</span>
             </div>
@@ -147,7 +153,7 @@ export function ShareModal({
               <img
                 src={qrDataUrl}
                 alt={`QR Code for ${title}`}
-                className="w-48 h-48 object-contain rounded-lg"
+                className="w-44 h-44 object-contain rounded-lg"
               />
               <span className="text-[10px] text-gray-500 font-mono text-center max-w-[260px] truncate">
                 {publicUrl}
@@ -158,7 +164,7 @@ export function ShareModal({
 
         {/* Public URL Input & Copy Button */}
         <div className="space-y-1">
-          <label className="text-[11px] font-extrabold text-amber-400 uppercase tracking-wider block">Public Shareable Link</label>
+          <label className="text-[11px] font-extrabold text-amber-400 uppercase tracking-wider block">Public Link</label>
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -180,22 +186,33 @@ export function ShareModal({
           </div>
         </div>
 
-        {/* Share & Download Action Buttons */}
-        <div className="grid grid-cols-2 gap-3 pt-2">
+        {/* Quick Action Share Buttons Grid */}
+        <div className="grid grid-cols-3 gap-2 pt-1">
+          {/* WhatsApp Share Button */}
           <button
-            onClick={handleNativeShare}
-            className="py-2.5 px-4 rounded-xl bg-emerald-900 hover:bg-emerald-800 border border-emerald-700 text-emerald-100 font-bold text-xs flex items-center justify-center gap-2 transition-all"
+            onClick={handleWhatsAppShare}
+            className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all"
           >
-            <Smartphone className="w-4 h-4 text-amber-400" />
-            <span>Share Link</span>
+            <MessageSquare className="w-4 h-4" />
+            <span>WhatsApp</span>
           </button>
 
+          {/* System Share */}
+          <button
+            onClick={handleNativeShare}
+            className="py-2.5 px-3 rounded-xl bg-emerald-900 hover:bg-emerald-800 border border-emerald-700 text-emerald-100 font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+          >
+            <Smartphone className="w-4 h-4 text-amber-400" />
+            <span>Share</span>
+          </button>
+
+          {/* Download QR Code */}
           <button
             onClick={handleDownloadQR}
-            className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-emerald-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all"
+            className="py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-emerald-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md transition-all"
           >
             <Download className="w-4 h-4" />
-            <span>Download QR</span>
+            <span>Save QR</span>
           </button>
         </div>
 

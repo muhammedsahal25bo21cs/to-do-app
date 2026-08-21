@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import { User, Session } from '@supabase/supabase-js';
-import { AdminRole, AdminProfile, getAdminProfiles } from '@/lib/cmsService';
+import { AdminRole, AdminProfile, getAdminProfiles, logActivity } from '@/lib/cmsService';
 
 export const ROLE_PERMISSIONS: Record<AdminRole, string[]> = {
   'Super Admin': [
@@ -54,30 +54,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Check localStorage fallback for demo mode
-    const demoAuth = localStorage.getItem('demo_admin_auth');
-    const demoRole = (localStorage.getItem('demo_admin_role') as AdminRole) || 'Super Admin';
-
-    if (demoAuth === 'true') {
-      setIsAdminAuthenticated(true);
-      setAdminProfile({
-        id: 'demo-admin-id',
-        email: 'admin@miladfest.com',
-        name_en: 'System Administrator',
-        role: demoRole,
-        status: 'Active',
-      });
-    }
-
     if (isSupabaseConfigured()) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          setIsAdminAuthenticated(true);
-          fetchAdminProfile(session.user.email || '');
-        } else if (demoAuth !== 'true') {
+          fetchAdminProfile(session.user.email || '', session.user.id);
+        } else {
           setIsAdminAuthenticated(false);
+          setAdminProfile(null);
           setIsLoading(false);
         }
       });
@@ -86,9 +71,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          setIsAdminAuthenticated(true);
-          fetchAdminProfile(session.user.email || '');
-        } else if (localStorage.getItem('demo_admin_auth') !== 'true') {
+          fetchAdminProfile(session.user.email || '', session.user.id);
+        } else {
           setIsAdminAuthenticated(false);
           setAdminProfile(null);
           setIsLoading(false);
@@ -101,29 +85,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const fetchAdminProfile = async (email: string) => {
+  const fetchAdminProfile = async (email: string, userId?: string): Promise<boolean> => {
     try {
       const profiles = await getAdminProfiles();
-      const match = profiles.find(p => p.email.toLowerCase() === email.toLowerCase());
-      if (match) {
-        if (match.status === 'Disabled') {
-          await logout();
-          alert('Your administrator account has been disabled by organizers.');
-          return;
-        }
-        setAdminProfile(match);
-      } else {
-        // Default Super Admin profile
-        setAdminProfile({
-          id: 'user-' + Date.now(),
-          email,
-          name_en: email.split('@')[0],
+      let match = profiles.find(p => (userId && p.id === userId) || p.email.toLowerCase() === email.toLowerCase());
+
+      // FIRST SUPER ADMIN BOOTSTRAP MECHANISM
+      // If Supabase is connected and 0 admin profiles exist in the database,
+      // securely bootstrap the first authenticated user as Super Admin.
+      if (!match && profiles.length === 0 && isSupabaseConfigured() && userId && email) {
+        const firstAdmin: AdminProfile = {
+          id: userId,
+          email: email,
+          name_en: email.split('@')[0] || 'Super Administrator',
           role: 'Super Admin',
           status: 'Active',
-        });
+          assigned_programme_ids: [],
+          assigned_category_ids: [],
+          created_at: new Date().toISOString(),
+          last_active: new Date().toISOString(),
+        };
+
+        try {
+          const { data, error } = await supabase.from('admin_profiles').insert([firstAdmin]).select().single();
+          if (!error && data) {
+            match = data;
+          } else {
+            match = firstAdmin;
+          }
+          await logActivity('bootstrap_super_admin', 'admin_profiles', userId, `First Super Admin account bootstrapped for "${email}"`);
+        } catch (bootErr) {
+          console.warn('Bootstrap insert warning:', bootErr);
+          match = firstAdmin;
+        }
+      }
+
+      if (match) {
+        if (match.status === 'Disabled') {
+          await supabase.auth.signOut();
+          setIsAdminAuthenticated(false);
+          setAdminProfile(null);
+          return false;
+        }
+        setAdminProfile(match);
+        setIsAdminAuthenticated(true);
+        return true;
+      } else {
+        // User authenticated in Supabase but not assigned an Admin role in DB -> DENY ACCESS!
+        await supabase.auth.signOut();
+        setIsAdminAuthenticated(false);
+        setAdminProfile(null);
+        return false;
       }
     } catch (e) {
       console.warn('Error fetching admin profile:', e);
+      setIsAdminAuthenticated(false);
+      setAdminProfile(null);
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -146,8 +164,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setUser(data.user);
         setSession(data.session);
-        setIsAdminAuthenticated(true);
-        await fetchAdminProfile(data.user.email || '');
+        
+        const isAuthorized = await fetchAdminProfile(data.user.email || '', data.user.id);
+        if (!isAuthorized) {
+          setIsLoading(false);
+          return {
+            success: false,
+            error: 'Access Denied: You do not have administrator access. Please contact the event administrator.',
+          };
+        }
+
         return { success: true };
       } catch (err: any) {
         setIsLoading(false);
@@ -155,29 +181,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Demo Local Preview Fallback
-    if (email && pass) {
-      localStorage.setItem('demo_admin_auth', 'true');
-      setIsAdminAuthenticated(true);
-      setAdminProfile({
-        id: 'demo-admin-id',
-        email,
-        name_en: 'Administrator',
-        role: 'Super Admin',
-        status: 'Active',
-      });
-      setIsLoading(false);
-      return { success: true };
-    }
-
     setIsLoading(false);
-    return { success: false, error: 'Please provide valid login credentials.' };
+    return { success: false, error: 'Supabase authentication is not configured.' };
   };
 
   const logout = async (): Promise<void> => {
     setIsLoading(true);
-    localStorage.removeItem('demo_admin_auth');
-    localStorage.removeItem('demo_admin_role');
     setIsAdminAuthenticated(false);
     setUser(null);
     setSession(null);

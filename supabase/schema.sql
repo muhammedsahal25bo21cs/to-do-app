@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.admin_profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL UNIQUE,
   name_en TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('Super Admin', 'Event Manager', 'Score Manager', 'Result Manager')),
+  role TEXT NOT NULL CHECK (role IN ('Super Admin', 'Event Manager', 'Score Manager', 'Result Manager', 'Judge', 'Check-in Staff')),
   status TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Disabled')),
   assigned_programme_ids TEXT[] DEFAULT '{}',
   assigned_category_ids TEXT[] DEFAULT '{}',
@@ -272,11 +272,37 @@ ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gallery_images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
 
+-- Security Definer helper functions to avoid RLS infinite recursion on admin_profiles
+CREATE OR REPLACE FUNCTION public.is_super_admin(user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.admin_profiles
+    WHERE id = user_id AND role = 'Super Admin' AND status = 'Active'
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_active_admin(user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.admin_profiles
+    WHERE id = user_id AND status = 'Active'
+  );
+$$;
+
 -- 1. Admin Profiles RLS
+DROP POLICY IF EXISTS "Admins view profiles" ON public.admin_profiles;
+DROP POLICY IF EXISTS "Super Admins manage profiles" ON public.admin_profiles;
+
 CREATE POLICY "Admins view profiles" ON public.admin_profiles FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Super Admins manage profiles" ON public.admin_profiles FOR ALL USING (
-  EXISTS (SELECT 1 FROM public.admin_profiles WHERE id = auth.uid() AND role = 'Super Admin' AND status = 'Active')
-);
+CREATE POLICY "Super Admins manage profiles" ON public.admin_profiles FOR ALL USING (public.is_super_admin(auth.uid()));
 
 -- 2. Students RLS
 CREATE POLICY "Admins view students" ON public.students FOR SELECT USING (auth.role() = 'authenticated');
@@ -323,3 +349,17 @@ CREATE POLICY "Admins manage gallery" ON public.gallery_images FOR ALL USING (au
 -- 7. Activity Logs RLS
 CREATE POLICY "Admins read activity logs" ON public.activity_logs FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Admins insert activity logs" ON public.activity_logs FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- ========================================================
+-- FIRST SUPER ADMIN BOOTSTRAP INSTRUCTIONS & RLS FIX
+-- 1. Execute the SECURITY DEFINER functions above in Supabase SQL Editor to fix RLS infinite recursion.
+-- 2. To configure your existing Supabase Auth user as the FIRST Super Admin, run:
+--
+-- INSERT INTO public.admin_profiles (id, email, name_en, role, status)
+-- SELECT id, email, COALESCE(raw_user_meta_data->>'name', 'Super Administrator'), 'Super Admin', 'Active'
+-- FROM auth.users
+-- WHERE email = 'your-admin-email@domain.com'
+-- ON CONFLICT (id) DO UPDATE SET role = 'Super Admin', status = 'Active';
+-- ========================================================
+
+
