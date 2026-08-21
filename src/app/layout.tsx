@@ -4,24 +4,46 @@ import { LanguageProvider } from "@/context/LanguageContext";
 
 import { getSiteSettings } from "@/lib/cmsService";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://meelad-gold.vercel.app";
+function getValidSiteUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (envUrl && !envUrl.includes("localhost")) {
+    return envUrl.replace(/\/$/, "");
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL.replace(/\/$/, "")}`;
+  }
+  return "https://meelad-gold.vercel.app";
+}
+
+function resolveAbsoluteImageUrl(url: string | undefined, baseUrl: string): string {
+  const target = url && url.trim() ? url.trim() : "/og-image.png";
+  if (target.startsWith("http://") || target.startsWith("https://")) {
+    return target;
+  }
+  const cleanPath = target.startsWith("/") ? target : `/${target}`;
+  return `${baseUrl}${cleanPath}`;
+}
 
 export const revalidate = 0;
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
+  const siteUrl = getValidSiteUrl();
 
-  const title = settings.seo_site_title || settings.event_name_en || "Milad Fest 2K26";
+  const title = settings.seo_site_title || settings.event_name_en || "Rowlathul Madeena Milad Fest - 2K26";
   const description =
     settings.seo_meta_description ||
     settings.description_en ||
     settings.event_subtitle_en ||
-    "Grand Cultural & Spiritual Celebration of Mawlid-un-Nabi ﷺ. Live results, leaderboard, and certificate verification.";
-  const shareImage =
+    "August 29, Saturday at Al Ihsan Sunni Madrassa, Karingari. Grand Cultural & Spiritual Celebration of Mawlid-un-Nabi ﷺ. Live results, leaderboard, and certificate verification.";
+
+  const rawShareImage =
     settings.seo_share_image_url ||
     settings.event_poster_url ||
     settings.hero_image_url ||
     "/og-image.png";
+
+  const shareImage = resolveAbsoluteImageUrl(rawShareImage, siteUrl);
   const favicon = settings.favicon_url || "/favicon.ico";
   const eventName = settings.event_name_en || "Milad Fest 2K26";
 
@@ -35,7 +57,10 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: [
       eventName,
       settings.venue_en || "Al Ihsan Madrassa",
-      "Milad Fest",
+      "Rowlathul Madeena",
+      "Milad Fest 2026",
+      "Karingari Milad",
+      "Al Ihsan Madrassa",
       "Mawlid Fest",
       "Milad un Nabi",
       "Islamic Competition",
