@@ -1150,7 +1150,7 @@ export async function getCategories(includeArchived = false): Promise<Category[]
       let query = supabase.from('categories').select('*').order('display_order', { ascending: true });
       if (!includeArchived) query = query.eq('is_archived', false);
       const { data, error } = await query;
-      if (data && !error && data.length > 0) {
+      if (data && !error) {
         return data.map(c => ({ ...c, slug: c.slug || slugify(c.name_en) }));
       }
     } catch (e) {
@@ -1241,7 +1241,7 @@ export async function getTeams(includeArchived = false): Promise<Team[]> {
       let query = supabase.from('teams').select('*').order('name_en', { ascending: true });
       if (!includeArchived) query = query.eq('is_archived', false);
       const { data, error } = await query;
-      if (data && !error && data.length > 0) return data;
+      if (data && !error) return data;
     } catch (e) {
       console.warn('Supabase getTeams error', e);
     }
@@ -1320,7 +1320,7 @@ export async function getStudents(includeArchived = false): Promise<Student[]> {
       let query = supabase.from('students').select('*').order('name_en', { ascending: true });
       if (!includeArchived) query = query.eq('is_archived', false);
       const { data, error } = await query;
-      if (data && !error && data.length > 0) return data;
+      if (data && !error) return data;
     } catch (e) {
       console.warn('Supabase getStudents error', e);
     }
@@ -1510,7 +1510,7 @@ export async function getProgrammes(onlyPublished = false, includeArchived = fal
         query = query.eq('is_archived', false);
       }
       const { data, error } = await query;
-      if (data && !error && data.length > 0) {
+      if (data && !error) {
         return data.map(p => ({ ...p, slug: p.slug || slugify(p.title_en) }));
       }
     } catch (e) {
