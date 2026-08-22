@@ -786,33 +786,22 @@ function getLocal<T>(key: string, defaultData: T): T {
     ? (store[key] as T)
     : (store && store[key] !== undefined && typeof store[key] === 'object' ? (store[key] as T) : defaultData);
 
-  if (typeof window === 'undefined') {
-    return serverFallback;
-  }
-  try {
-    const item = localStorage.getItem(`meelad_cms_${key}`);
-    if (item) {
-      const parsed = JSON.parse(item);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed as T;
-      if (!Array.isArray(parsed) && parsed) return parsed as T;
-    }
-    return serverFallback;
-  } catch {
-    return serverFallback;
-  }
+  return serverFallback;
 }
 
 function setLocal<T>(key: string, data: T): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(`meelad_cms_${key}`, JSON.stringify(data));
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`meelad_cms_${key}`, JSON.stringify(data));
+    } catch {}
+  }
+
+  if (typeof window !== 'undefined') {
     fetch('/api/cms/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [key]: data }),
     }).catch(e => console.warn('Background CMS sync error:', e));
-  } catch (e) {
-    console.error('LocalStorage error:', e);
   }
 }
 
@@ -1150,7 +1139,7 @@ export async function getCategories(includeArchived = false): Promise<Category[]
       let query = supabase.from('categories').select('*').order('display_order', { ascending: true });
       if (!includeArchived) query = query.eq('is_archived', false);
       const { data, error } = await query;
-      if (data && !error) {
+      if (data && !error && data.length > 0) {
         return data.map(c => ({ ...c, slug: c.slug || slugify(c.name_en) }));
       }
     } catch (e) {
@@ -1241,7 +1230,7 @@ export async function getTeams(includeArchived = false): Promise<Team[]> {
       let query = supabase.from('teams').select('*').order('name_en', { ascending: true });
       if (!includeArchived) query = query.eq('is_archived', false);
       const { data, error } = await query;
-      if (data && !error) return data;
+      if (data && !error && data.length > 0) return data;
     } catch (e) {
       console.warn('Supabase getTeams error', e);
     }
@@ -1320,7 +1309,7 @@ export async function getStudents(includeArchived = false): Promise<Student[]> {
       let query = supabase.from('students').select('*').order('name_en', { ascending: true });
       if (!includeArchived) query = query.eq('is_archived', false);
       const { data, error } = await query;
-      if (data && !error) return data;
+      if (data && !error && data.length > 0) return data;
     } catch (e) {
       console.warn('Supabase getStudents error', e);
     }
@@ -1510,7 +1499,7 @@ export async function getProgrammes(onlyPublished = false, includeArchived = fal
         query = query.eq('is_archived', false);
       }
       const { data, error } = await query;
-      if (data && !error) {
+      if (data && !error && data.length > 0) {
         return data.map(p => ({ ...p, slug: p.slug || slugify(p.title_en) }));
       }
     } catch (e) {

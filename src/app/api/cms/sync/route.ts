@@ -194,11 +194,19 @@ export async function POST(request: Request) {
       last_synced_at: new Date().toISOString(),
     };
 
-    // Save JSON data cache
-    writeStoredData(updated);
+    // 1. Sync to Supabase FIRST
+    try {
+      await syncToSupabase(updated);
+    } catch (supabaseErr) {
+      console.warn('Background Supabase sync error:', supabaseErr);
+    }
 
-    // Sync directly to Supabase production tables
-    await syncToSupabase(updated);
+    // 2. Save JSON data cache safely (ignore read-only filesystem errors on serverless)
+    try {
+      writeStoredData(updated);
+    } catch (fsErr) {
+      console.warn('Serverless fs write warning:', fsErr);
+    }
 
     return NextResponse.json({ 
       success: true, 
