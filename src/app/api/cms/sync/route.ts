@@ -168,9 +168,19 @@ async function syncToSupabase(payload: any) {
   }
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function GET() {
   const data = readStoredData();
-  return NextResponse.json(data || {});
+  return NextResponse.json(data || {}, { headers: corsHeaders });
 }
 
 export async function POST(request: Request) {
@@ -199,8 +209,8 @@ export async function POST(request: Request) {
         programmes: Array.isArray(updated.programmes) ? updated.programmes.length : 0,
         categories: Array.isArray(updated.categories) ? updated.categories.length : 0,
       }
-    });
+    }, { headers: corsHeaders });
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e.message }, { status: 400 });
+    return NextResponse.json({ success: false, error: e.message }, { status: 400, headers: corsHeaders });
   }
 }
