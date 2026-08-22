@@ -781,18 +781,24 @@ const DEFAULT_CERTIFICATE_CONFIG: CertificateTemplateConfig = {
 import publishedData from '@/data/published_cms_data.json';
 
 function getLocal<T>(key: string, defaultData: T): T {
+  const store = publishedData as any;
+  const serverFallback = (store && store[key] !== undefined && Array.isArray(store[key]) && store[key].length > 0)
+    ? (store[key] as T)
+    : (store && store[key] !== undefined && typeof store[key] === 'object' ? (store[key] as T) : defaultData);
+
   if (typeof window === 'undefined') {
-    const store = publishedData as any;
-    if (store && store[key] !== undefined) {
-      return store[key] as T;
-    }
-    return defaultData;
+    return serverFallback;
   }
   try {
     const item = localStorage.getItem(`meelad_cms_${key}`);
-    return item ? JSON.parse(item) : defaultData;
+    if (item) {
+      const parsed = JSON.parse(item);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed as T;
+      if (!Array.isArray(parsed) && parsed) return parsed as T;
+    }
+    return serverFallback;
   } catch {
-    return defaultData;
+    return serverFallback;
   }
 }
 
