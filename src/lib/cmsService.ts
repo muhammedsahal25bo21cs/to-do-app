@@ -570,17 +570,202 @@ const DEFAULT_ADMIN_USERS: AdminProfile[] = [
   { id: 'adm-4', email: 'results@miladfest.com', name_en: 'Result & Poster Publisher', role: 'Result Manager', status: 'Active', last_active: '3 days ago' },
 ];
 
-const DEFAULT_CATEGORIES: Category[] = [];
-const DEFAULT_TEAMS: Team[] = [];
-const DEFAULT_STUDENTS: Student[] = [];
+const DEFAULT_CATEGORIES: Category[] = [
+  { id: 'cat-sub-junior', name_en: 'Sub-Junior', name_ml: 'സബ്‌ജൂനിയർ', slug: 'sub-junior', display_order: 1, is_archived: false, allow_individual: true, allow_team: true, max_team_size: 5 },
+  { id: 'cat-junior', name_en: 'Junior', name_ml: 'ജൂനിയർ', slug: 'junior', display_order: 2, is_archived: false, allow_individual: true, allow_team: true, max_team_size: 5 },
+  { id: 'cat-senior', name_en: 'Senior', name_ml: 'സീനിയർ', slug: 'senior', display_order: 3, is_archived: false, allow_individual: true, allow_team: true, max_team_size: 5 },
+  { id: 'cat-general', name_en: 'General', name_ml: 'ജനറൽ', slug: 'general', display_order: 4, is_archived: false, allow_individual: true, allow_team: true, max_team_size: 10 },
+];
+
+const DEFAULT_TEAMS: Team[] = [
+  { id: 'team-farqan', code: 'FRQ', name_en: 'Team Farqan', name_ml: 'ഫർഖാന്മാർ', color_code: '#059669', is_archived: false },
+  { id: 'team-rayyan', code: 'RYN', name_en: 'Team Rayyan', name_ml: 'റയ്യാന്മാർ', color_code: '#2563eb', is_archived: false },
+  { id: 'team-salsabeel', code: 'SLS', name_en: 'Team Salsabeel', name_ml: 'സൽസബീൽ', color_code: '#d97706', is_archived: false },
+  { id: 'team-sufiyan', code: 'SFN', name_en: 'Team Sufiyan', name_ml: 'സൂഫിയാൻ', color_code: '#7c3aed', is_archived: false },
+];
+
+const DEFAULT_STUDENTS: Student[] = [
+  { id: 'std-1', student_id_code: 'FRQ-101', name_en: 'Muhammed Yaseen', name_ml: 'മുഹമ്മദ് യാസീൻ', team_id: 'team-farqan', category_class: 'Senior', is_archived: false },
+  { id: 'std-2', student_id_code: 'RYN-102', name_en: 'Abdulla Fasil', name_ml: 'അബ്ദുല്ല ഫാസിൽ', team_id: 'team-rayyan', category_class: 'Junior', is_archived: false },
+  { id: 'std-3', student_id_code: 'SLS-103', name_en: 'Muhammed Rabeeh', name_ml: 'മുഹമ്മദ് റബീഹ്', team_id: 'team-salsabeel', category_class: 'Senior', is_archived: false },
+  { id: 'std-4', student_id_code: 'SFN-104', name_en: 'Ahmad Rayan', name_ml: 'അഹ്മദ് റയാൻ', team_id: 'team-sufiyan', category_class: 'Sub-Junior', is_archived: false },
+];
+
 const DEFAULT_SPEAKERS: Speaker[] = [];
-const DEFAULT_PROGRAMMES: Programme[] = [];
+
+const DEFAULT_PROGRAMMES: Programme[] = [
+  {
+    id: 'prg-1',
+    code: 'P101',
+    title_en: 'Quran Tilawat',
+    title_ml: 'ഖുർആൻ പാരായണം',
+    slug: 'quran-tilawat',
+    category_id: 'cat-sub-junior',
+    description_en: 'Recitation of Holy Quran with Tajweed.',
+    event_date: '2026-08-29',
+    start_time: '09:00 AM',
+    end_time: '10:00 AM',
+    venue: 'Main Auditorium',
+    competition_type: 'Individual',
+    max_score: 100,
+    status: 'published',
+    is_published: true,
+    display_order: 1,
+    lifecycle_status: 'Published',
+    is_archived: false,
+  },
+  {
+    id: 'prg-2',
+    code: 'P102',
+    title_en: 'Hifdh Recitation',
+    title_ml: 'ഹിഫ്ള് പാരായണം',
+    slug: 'hifdh-recitation',
+    category_id: 'cat-junior',
+    description_en: 'Memorization and recitation of designated chapters.',
+    event_date: '2026-08-29',
+    start_time: '10:00 AM',
+    end_time: '11:00 AM',
+    venue: 'Haram Hall',
+    competition_type: 'Individual',
+    max_score: 100,
+    status: 'published',
+    is_published: true,
+    display_order: 2,
+    lifecycle_status: 'Published',
+    is_archived: false,
+  },
+  {
+    id: 'prg-3',
+    code: 'P103',
+    title_en: 'Arabic Song',
+    title_ml: 'അറബിക് ഗാനം',
+    slug: 'arabic-song',
+    category_id: 'cat-junior',
+    description_en: 'Solo Arabic devotional song competition.',
+    event_date: '2026-08-29',
+    start_time: '11:15 AM',
+    end_time: '12:45 PM',
+    venue: 'Madina Nagar Stage',
+    competition_type: 'Individual',
+    max_score: 100,
+    status: 'published',
+    is_published: true,
+    display_order: 3,
+    lifecycle_status: 'Published',
+    is_archived: false,
+  },
+  {
+    id: 'prg-4',
+    code: 'P104',
+    title_en: 'Naat Shareef Recitation',
+    title_ml: 'നഅ്ത് ശരീഫ് ആലാപനം',
+    slug: 'naat-shareef-recitation',
+    category_id: 'cat-senior',
+    description_en: 'Prophetic praise and Naat recitation.',
+    event_date: '2026-08-29',
+    start_time: '02:00 PM',
+    end_time: '03:15 PM',
+    venue: 'Main Auditorium',
+    competition_type: 'Individual',
+    max_score: 100,
+    status: 'published',
+    is_published: true,
+    display_order: 4,
+    lifecycle_status: 'Published',
+    is_archived: false,
+  },
+  {
+    id: 'prg-5',
+    code: 'P105',
+    title_en: 'Duffmutt Performance',
+    title_ml: 'ദഫ് മുട്ട് പ്രകടനം',
+    slug: 'duffmutt-performance',
+    category_id: 'cat-general',
+    description_en: 'Traditional Duffmutt group performance.',
+    event_date: '2026-08-29',
+    start_time: '04:30 PM',
+    end_time: '06:30 PM',
+    venue: 'Main Auditorium',
+    competition_type: 'Team',
+    max_score: 100,
+    status: 'published',
+    is_published: true,
+    display_order: 5,
+    lifecycle_status: 'Published',
+    is_archived: false,
+  },
+];
+
 const DEFAULT_REGISTRATIONS: ProgrammeRegistration[] = [];
 const DEFAULT_SCORES: ScoreEntry[] = [];
 const DEFAULT_SCORE_AUDIT: ScoreAuditHistoryEntry[] = [];
-const DEFAULT_RESULTS: ProgrammeResult[] = [];
-const DEFAULT_GALLERY: GalleryImage[] = [];
-const DEFAULT_ANNOUNCEMENTS: Announcement[] = [];
+
+const DEFAULT_RESULTS: ProgrammeResult[] = [
+  {
+    id: 'res-1',
+    programme_id: 'prg-1',
+    participant_type: 'student',
+    student_id: 'std-4',
+    student_name_en: 'Ahmad Rayan',
+    team_id: 'team-sufiyan',
+    team_name_en: 'Team Sufiyan',
+    rank: 1,
+    score: 96,
+    max_score: 100,
+    points: 10,
+    is_published: true,
+    published_at: '2026-08-29T10:00:00Z',
+  },
+  {
+    id: 'res-2',
+    programme_id: 'prg-3',
+    participant_type: 'student',
+    student_id: 'std-2',
+    student_name_en: 'Abdulla Fasil',
+    team_id: 'team-rayyan',
+    team_name_en: 'Team Rayyan',
+    rank: 1,
+    score: 94,
+    max_score: 100,
+    points: 10,
+    is_published: true,
+    published_at: '2026-08-29T12:00:00Z',
+  },
+];
+
+const DEFAULT_GALLERY: GalleryImage[] = [
+  {
+    id: 'gal-1',
+    title_en: 'Official Fest Poster Banner',
+    category_en: 'Event Poster',
+    image_url: '/og-image.png',
+    is_published: true,
+    display_order: 1,
+  },
+  {
+    id: 'gal-2',
+    title_en: 'Main Stage & Venue Decoration',
+    category_en: 'Venue & Stage',
+    image_url: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=80&w=1200&auto=format&fit=crop',
+    is_published: true,
+    display_order: 2,
+  },
+];
+
+const DEFAULT_ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: 'ann-1',
+    title_en: 'Official Fest Schedule & Registration Guidelines Published',
+    title_ml: 'ഔദ്യോഗിക പ്രോഗ്രാം ഷെഡ്യൂളും മാർഗ്ഗനിർദ്ദേശങ്ങളും പ്രസിദ്ധീകരിച്ചു',
+    short_description_en: 'Welcome to Rowlathul Madeena Milad Fest 2K26. Registrations and results desk are live.',
+    content_en: 'We are pleased to announce the official release of Rowlathul Madeena Milad Fest 2K26 schedule. All participants can verify their registrations and view live results on the portal.',
+    priority: 'Important',
+    is_important: true,
+    is_published: true,
+    start_date: '2026-08-29',
+    display_order: 1,
+  },
+];
 const DEFAULT_LOGS: AdminActivityLog[] = [];
 const DEFAULT_CERTIFICATES: GeneratedCertificate[] = [];
 const DEFAULT_CERTIFICATE_CONFIG: CertificateTemplateConfig = {
