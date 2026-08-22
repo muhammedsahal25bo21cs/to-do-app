@@ -778,8 +778,16 @@ const DEFAULT_CERTIFICATE_CONFIG: CertificateTemplateConfig = {
   organizer_name: 'Raulathul Madheena Committee',
 };
 
+import publishedData from '@/data/published_cms_data.json';
+
 function getLocal<T>(key: string, defaultData: T): T {
-  if (typeof window === 'undefined') return defaultData;
+  if (typeof window === 'undefined') {
+    const store = publishedData as any;
+    if (store && store[key] !== undefined) {
+      return store[key] as T;
+    }
+    return defaultData;
+  }
   try {
     const item = localStorage.getItem(`meelad_cms_${key}`);
     return item ? JSON.parse(item) : defaultData;
@@ -792,8 +800,40 @@ function setLocal<T>(key: string, data: T): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(`meelad_cms_${key}`, JSON.stringify(data));
+    fetch('/api/cms/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: data }),
+    }).catch(e => console.warn('Background CMS sync error:', e));
   } catch (e) {
     console.error('LocalStorage error:', e);
+  }
+}
+
+export async function syncAllLaptopDataToServer(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  try {
+    const keys = ['site_settings', 'categories', 'teams', 'students', 'programmes', 'announcements', 'results', 'gallery', 'sections', 'navigation'];
+    const payload: Record<string, any> = {};
+    for (const k of keys) {
+      const item = localStorage.getItem(`meelad_cms_${k}`);
+      if (item) {
+        try {
+          payload[k] = JSON.parse(item);
+        } catch {
+          // Skip invalid JSON
+        }
+      }
+    }
+    const res = await fetch('/api/cms/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('Error syncing laptop data to server:', err);
+    return false;
   }
 }
 

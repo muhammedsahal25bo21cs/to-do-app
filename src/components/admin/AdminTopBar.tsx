@@ -193,6 +193,23 @@ export function AdminTopBar({
           )}
         </div>
 
+        {/* Sync Laptop Data to Mobile / Public Server Button */}
+        <button
+          onClick={async () => {
+            const mod = await import('@/lib/cmsService');
+            const ok = await mod.syncAllLaptopDataToServer();
+            if (ok) {
+              alert('✅ Successfully synced all laptop Admin data to the live server! All mobile devices and phone browsers will now display your changes.');
+            } else {
+              alert('⚠️ Failed to sync data to server.');
+            }
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-emerald-950 text-xs font-black shadow-md transition-all shrink-0"
+          title="Sync Laptop Admin Data to Live Website & Mobile Devices"
+        >
+          <span>Sync to Mobile</span>
+        </button>
+
         {/* Public Website Shortcut */}
         <a
           href="/"
