@@ -209,6 +209,23 @@ export default function AdminDashboardPage() {
 
           <div className="flex flex-wrap items-center gap-3">
             <button
+              onClick={async () => {
+                const mod = await import('@/lib/cmsService');
+                const res = await mod.syncAllLaptopDataToServer();
+                if (res.success) {
+                  const c = res.counts || {};
+                  alert(`✅ Successfully synced laptop Admin data to Supabase!\n\nSynced to all mobile devices:\n• ${c.students || 0} Students\n• ${c.programmes || 0} Programmes\n• ${c.teams || 0} Teams\n• ${c.categories || 0} Categories\n\nAll mobile phones and shared public links now show your live data!`);
+                } else {
+                  alert('⚠️ Failed to sync data to server.');
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-emerald-950 font-black text-xs shadow-xl shadow-amber-500/20 transition-all shrink-0"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-950" />
+              <span>Sync {metrics.totalStudents} Students & Data to Phone</span>
+            </button>
+
+            <button
               onClick={handleRecalculateLeaderboard}
               disabled={isRecalculating}
               className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-emerald-900 hover:bg-emerald-800 text-amber-300 border border-emerald-700 font-extrabold text-xs shadow-lg transition-all disabled:opacity-50"
@@ -219,7 +236,7 @@ export default function AdminDashboardPage() {
 
             <Link
               href="/admin/results"
-              className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-emerald-950 font-black text-xs shadow-xl shadow-amber-500/20 transition-all shrink-0"
+              className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-emerald-900 hover:bg-emerald-800 text-amber-300 border border-emerald-700 font-extrabold text-xs shadow-lg transition-all shrink-0"
             >
               <Trophy className="w-4 h-4" />
               <span>Result Publishing Desk</span>

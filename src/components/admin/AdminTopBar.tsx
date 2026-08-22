@@ -71,6 +71,11 @@ export function AdminTopBar({
 
   useEffect(() => {
     getSiteSettings().then(setSiteSettings);
+    if (typeof window !== 'undefined') {
+      import('@/lib/cmsService').then(mod => {
+        mod.syncAllLaptopDataToServer().catch(console.error);
+      });
+    }
   }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
