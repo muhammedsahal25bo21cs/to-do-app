@@ -323,7 +323,7 @@ export interface ProgrammeResult {
   is_published: boolean;
   published_at?: string;
   poster_title?: string;
-  poster_template?: 'classic-islamic' | 'royal-gold' | 'minimalist-emerald' | 'modern-islamic';
+  poster_template?: 'madinah-premium' | 'royal-islamic' | 'modern-islamic' | 'masjid-night' | 'traditional-nabidinam' | 'classic-islamic' | 'royal-gold';
   poster_bg_url?: string;
   custom_footer_text?: string;
   student_name_en?: string;
@@ -2641,7 +2641,7 @@ export async function generateProgrammeResults(programmeId: string): Promise<Pro
   return getProgrammeResults(programmeId, false);
 }
 
-export async function updateResultPosterCustomization(programmeId: string, customization: { poster_title?: string; poster_template?: 'classic-islamic' | 'royal-gold' | 'minimalist-emerald' | 'modern-islamic'; poster_bg_url?: string; custom_footer_text?: string }): Promise<void> {
+export async function updateResultPosterCustomization(programmeId: string, customization: { poster_title?: string; poster_template?: 'madinah-premium' | 'royal-islamic' | 'modern-islamic' | 'masjid-night' | 'traditional-nabidinam' | 'classic-islamic' | 'royal-gold'; poster_bg_url?: string; custom_footer_text?: string }): Promise<void> {
   if (isSupabaseConfigured()) {
     try {
       await supabase.from('results').update(customization).eq('programme_id', programmeId);

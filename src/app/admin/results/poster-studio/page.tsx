@@ -28,7 +28,7 @@ export default function ResultPosterStudioPage() {
 
   // Customization Controls State
   const [posterTitle, setPosterTitle] = useState('OFFICIAL COMPETITION RESULT');
-  const [template, setTemplate] = useState<'classic-islamic' | 'royal-gold' | 'minimalist-emerald' | 'modern-islamic'>('royal-gold');
+  const [template, setTemplate] = useState<'madinah-premium' | 'royal-islamic' | 'modern-islamic' | 'masjid-night' | 'traditional-nabidinam' | 'classic-islamic' | 'royal-gold'>('madinah-premium');
   const [aspectRatio, setAspectRatio] = useState<'4:5' | '9:16'>('4:5');
   const [customFooter, setCustomFooter] = useState('');
   const [displayCount, setDisplayCount] = useState(3);
@@ -206,16 +206,17 @@ export default function ResultPosterStudioPage() {
 
             {/* Poster Template Switcher */}
             <div>
-              <label className="block text-xs font-bold text-amber-300 mb-1">Islamic Template Style *</label>
+              <label className="block text-xs font-bold text-amber-300 mb-1">Islamic Poster Model Style *</label>
               <select
                 value={template}
                 onChange={(e: any) => setTemplate(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl bg-emerald-900 border border-emerald-700 text-amber-300 text-xs font-extrabold focus:border-amber-400 focus:outline-none"
               >
-                <option value="royal-gold">Template 1: Royal Gold & Emerald Frame</option>
-                <option value="classic-islamic">Template 2: Classic Islamic Arch</option>
-                <option value="modern-islamic">Template 3: Modern Islamic Geometric</option>
-                <option value="minimalist-emerald">Template 4: Minimal Editorial Result</option>
+                <option value="madinah-premium">Model 1: Madinah Premium (Green, Gold & Cream Arch)</option>
+                <option value="royal-islamic">Model 2: Royal Islamic (Imperial Emerald & Gold Filigree)</option>
+                <option value="modern-islamic">Model 3: Modern Islamic (Contemporary Ivory Card)</option>
+                <option value="masjid-night">Model 4: Masjid Night (Midnight Mosque Atmosphere)</option>
+                <option value="traditional-nabidinam">Model 5: Traditional Nabidinam (Arabesque Geometric)</option>
               </select>
             </div>
 

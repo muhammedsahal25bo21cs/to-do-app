@@ -30,7 +30,7 @@ export default function ResultsAdmin() {
   const [isPosterEditorOpen, setIsPosterEditorOpen] = useState(false);
   const [isPreviewPosterOpen, setIsPreviewPosterOpen] = useState(false);
   const [posterTitle, setPosterTitle] = useState('OFFICIAL COMPETITION RESULT');
-  const [posterTemplate, setPosterTemplate] = useState<'classic-islamic' | 'royal-gold' | 'minimalist-emerald' | 'modern-islamic'>('royal-gold');
+  const [posterTemplate, setPosterTemplate] = useState<'madinah-premium' | 'royal-islamic' | 'modern-islamic' | 'masjid-night' | 'traditional-nabidinam' | 'classic-islamic' | 'royal-gold'>('madinah-premium');
 
   // Score correction modal
   const [editingResult, setEditingResult] = useState<ProgrammeResult | null>(null);
