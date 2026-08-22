@@ -810,8 +810,8 @@ function setLocal<T>(key: string, data: T): void {
   }
 }
 
-export async function syncAllLaptopDataToServer(): Promise<boolean> {
-  if (typeof window === 'undefined') return false;
+export async function syncAllLaptopDataToServer(): Promise<{ success: boolean; counts?: any }> {
+  if (typeof window === 'undefined') return { success: false };
   try {
     const keys = ['site_settings', 'categories', 'teams', 'students', 'programmes', 'announcements', 'results', 'gallery', 'sections', 'navigation'];
     const payload: Record<string, any> = {};
@@ -830,10 +830,14 @@ export async function syncAllLaptopDataToServer(): Promise<boolean> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    return res.ok;
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, counts: data.counts };
+    }
+    return { success: false };
   } catch (err) {
     console.error('Error syncing laptop data to server:', err);
-    return false;
+    return { success: false };
   }
 }
 

@@ -197,9 +197,10 @@ export function AdminTopBar({
         <button
           onClick={async () => {
             const mod = await import('@/lib/cmsService');
-            const ok = await mod.syncAllLaptopDataToServer();
-            if (ok) {
-              alert('✅ Successfully synced all laptop Admin data to the live server! All mobile devices and phone browsers will now display your changes.');
+            const res = await mod.syncAllLaptopDataToServer();
+            if (res.success) {
+              const c = res.counts || {};
+              alert(`✅ Successfully synced laptop Admin data to Supabase and live server!\n\nSynced to all mobile devices:\n• ${c.students || 0} Students\n• ${c.programmes || 0} Programmes\n• ${c.teams || 0} Teams\n• ${c.categories || 0} Categories\n\nAll mobile phones and shared public links now show your live data!`);
             } else {
               alert('⚠️ Failed to sync data to server.');
             }
