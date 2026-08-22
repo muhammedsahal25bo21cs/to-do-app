@@ -122,7 +122,8 @@ async function syncToSupabase(payload: any) {
         programme_type: p.competition_type === 'Team' ? 'Group' : 'Single',
         venue_name: p.venue || null,
         max_score: p.max_score || 100,
-        lifecycle_status: p.lifecycle_status || (p.is_published ? 'Published' : 'Upcoming'),
+        lifecycle_status: p.lifecycle_status || 'Published',
+        is_published: p.is_published !== false,
         is_result_published: !!p.is_published,
       }));
       await supabase.from('programmes').upsert(rows, { onConflict: 'id' });

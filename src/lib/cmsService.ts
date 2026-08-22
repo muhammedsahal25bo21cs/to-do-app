@@ -1498,7 +1498,7 @@ export async function getProgrammes(onlyPublished = false, includeArchived = fal
     try {
       let query = supabase.from('programmes').select('*').order('display_order', { ascending: true });
       if (onlyPublished) {
-        query = query.eq('is_published', true).eq('status', 'published');
+        query = query.eq('is_published', true);
       }
       if (!includeArchived) {
         query = query.eq('is_archived', false);
@@ -1511,9 +1511,11 @@ export async function getProgrammes(onlyPublished = false, includeArchived = fal
       console.warn('Supabase getProgrammes error', e);
     }
   }
-  const local = getLocal<Programme[]>('programmes', DEFAULT_PROGRAMMES).sort((a, b) => a.display_order - b.display_order);
+  const local = getLocal<Programme[]>('programmes', DEFAULT_PROGRAMMES).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   let items = includeArchived ? local : local.filter(p => !p.is_archived);
-  if (onlyPublished) items = items.filter(p => p.is_published && p.status === 'published');
+  if (onlyPublished) {
+    items = items.filter(p => p.is_published !== false && (p.status === 'published' || !p.status || p.lifecycle_status === 'Published'));
+  }
   return items.map(p => ({ ...p, slug: p.slug || slugify(p.title_en) }));
 }
 
@@ -1524,6 +1526,8 @@ export async function createProgramme(prg: Omit<Programme, 'id'>): Promise<Progr
     slug,
     id: 'prg-' + Date.now(),
     is_archived: false,
+    is_published: prg.is_published !== undefined ? prg.is_published : true,
+    status: prg.status || 'published',
     registration_open: prg.registration_open !== undefined ? prg.registration_open : true,
     scoring_direction: prg.scoring_direction || 'higher_wins',
     min_score: prg.min_score || 0,
@@ -1532,7 +1536,7 @@ export async function createProgramme(prg: Omit<Programme, 'id'>): Promise<Progr
     include_in_student_leaderboard: prg.include_in_student_leaderboard !== undefined ? prg.include_in_student_leaderboard : true,
     include_in_team_leaderboard: prg.include_in_team_leaderboard !== undefined ? prg.include_in_team_leaderboard : true,
     custom_points_map: prg.custom_points_map || { rank1: 10, rank2: 7, rank3: 5, rank4: 3 },
-    lifecycle_status: prg.lifecycle_status || 'Draft',
+    lifecycle_status: prg.lifecycle_status || 'Published',
   };
 
   if (isSupabaseConfigured()) {
