@@ -1151,7 +1151,7 @@ export async function getCategories(includeArchived = false): Promise<Category[]
       console.warn('Supabase getCategories error', e);
     }
   }
-  const cats = getLocal<Category[]>('categories', DEFAULT_CATEGORIES).sort((a, b) => a.display_order - b.display_order);
+  const cats = getLocal<Category[]>('categories', []).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   const items = includeArchived ? cats : cats.filter(c => !c.is_archived);
   return items.map(c => ({ ...c, slug: c.slug || slugify(c.name_en) }));
 }
@@ -1240,7 +1240,7 @@ export async function getTeams(includeArchived = false): Promise<Team[]> {
       console.warn('Supabase getTeams error', e);
     }
   }
-  const local = getLocal<Team[]>('teams', DEFAULT_TEAMS);
+  const local = getLocal<Team[]>('teams', []);
   return includeArchived ? local : local.filter(t => !t.is_archived);
 }
 
@@ -1319,7 +1319,7 @@ export async function getStudents(includeArchived = false): Promise<Student[]> {
       console.warn('Supabase getStudents error', e);
     }
   }
-  const local = getLocal<Student[]>('students', DEFAULT_STUDENTS);
+  const local = getLocal<Student[]>('students', []);
   return includeArchived ? local : local.filter(s => !s.is_archived);
 }
 
@@ -1511,7 +1511,7 @@ export async function getProgrammes(onlyPublished = false, includeArchived = fal
       console.warn('Supabase getProgrammes error', e);
     }
   }
-  const local = getLocal<Programme[]>('programmes', DEFAULT_PROGRAMMES).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+  const local = getLocal<Programme[]>('programmes', []).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   let items = includeArchived ? local : local.filter(p => !p.is_archived);
   if (onlyPublished) {
     items = items.filter(p => p.is_published !== false && (p.status === 'published' || !p.status || p.lifecycle_status === 'Published'));
@@ -2485,18 +2485,34 @@ export async function getProgrammeResults(programmeId?: string, onlyPublished = 
   let rawResults: ProgrammeResult[] = [];
   if (isSupabaseConfigured()) {
     try {
-      let query = supabase.from('results').select('*');
+      let query = supabase.from('programme_results').select('*');
       if (programmeId) query = query.eq('programme_id', programmeId);
       if (onlyPublished) query = query.eq('is_published', true);
       const { data, error } = await query;
-      if (data && !error && data.length > 0) rawResults = data;
+      if (data && !error && data.length > 0) {
+        rawResults = data.map(r => {
+          if (Array.isArray(r.winners_json) && r.winners_json.length > 0) {
+            const first = r.winners_json[0];
+            return {
+              ...r,
+              student_id: first.student_id || r.student_id,
+              team_id: first.team_id || r.team_id,
+              rank: first.rank || first.position || r.rank || 1,
+              score: first.score || r.score || 0,
+              max_score: first.max_score || r.max_score || 100,
+              points: first.points || r.points || 10,
+            };
+          }
+          return r;
+        });
+      }
     } catch (e) {
       console.warn('Supabase getProgrammeResults error', e);
     }
   }
 
   if (rawResults.length === 0) {
-    const local = getLocal<ProgrammeResult[]>('results', DEFAULT_RESULTS);
+    const local = getLocal<ProgrammeResult[]>('results', []);
     rawResults = programmeId ? local.filter(r => r.programme_id === programmeId) : local;
     if (onlyPublished) rawResults = rawResults.filter(r => r.is_published);
   }
@@ -2891,7 +2907,7 @@ export async function getGalleryImages(onlyPublished = false): Promise<GalleryIm
       console.warn('Supabase getGalleryImages error', e);
     }
   }
-  const local = getLocal<GalleryImage[]>('gallery', DEFAULT_GALLERY).sort((a, b) => a.display_order - b.display_order);
+  const local = getLocal<GalleryImage[]>('gallery', []).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   return onlyPublished ? local.filter(g => g.is_published) : local;
 }
 
@@ -2959,7 +2975,7 @@ export async function getAnnouncements(onlyPublished = false): Promise<Announcem
       console.warn('Supabase getAnnouncements error', e);
     }
   }
-  const local = getLocal<Announcement[]>('announcements', DEFAULT_ANNOUNCEMENTS).sort((a, b) => a.display_order - b.display_order);
+  const local = getLocal<Announcement[]>('announcements', []).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   return onlyPublished ? local.filter(a => a.is_published) : local;
 }
 
